@@ -1,0 +1,31 @@
+/* 
+   File Description: Main Css file of the template
+*/
+
+/**********************
+01.General
+02.Menu
+03.Components
+04.Helper
+05.Loader
+06.Hero
+07.About Us
+08.demos
+09.faq
+10.contact
+11.footer
+***********************/
+
+
+@import "variables";
+@import "general";
+@import "menu";
+@import "components";
+@import "helper";
+@import "loader";
+@import "hero";
+@import "about";
+@import "demos";
+@import "faq";
+@import "contact";
+@import "footer";

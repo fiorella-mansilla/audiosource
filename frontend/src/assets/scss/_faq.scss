@@ -1,0 +1,15 @@
+//
+// faq.scss
+//
+
+.faq-content {
+    .nav {
+        .nav-link {
+            padding: 30px;
+            &.active {
+                background: $white !important;
+                box-shadow: $shadow;
+            }
+        }
+    }
+}

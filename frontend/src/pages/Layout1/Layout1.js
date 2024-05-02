@@ -12,7 +12,7 @@ const Footer = React.lazy(() => import("../../component/Footer/Footer"));
 
 // import { Spinner } from "reactstrap";
 
-class Layout4 extends Component {
+class Layout extends Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -94,4 +94,4 @@ class Layout4 extends Component {
     );
   }
 }
-export default Layout4;
+export default Layout;

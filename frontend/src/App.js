@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import routes from "../src/routes";
+import routes from "../routes";
 import withRouter from "./component/withRouter";
 import {
   Route,

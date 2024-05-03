@@ -1,4 +1,4 @@
-import Layout1 from "./src/pages/Layout1/Layout1";
+import Layout1 from "./pages/Layout1/Layout1";
 
 const routes = [
   { path: "/", component: <Layout1 /> },

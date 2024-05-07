@@ -8,10 +8,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 @Configuration
-public class AppConfig {
-
-    @Value("${PORT}")
-    private int port;
+public class AwsConfig {
 
     @Value("${AWS_ACCESS_KEY_ID}")
     private String awsAccessKeyId;

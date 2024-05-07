@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import routes from "../src/routes";
-import withRouter from "./component/withRouter";
+import withRouter from "./components/withRouter";
 import {
   Route,
   Routes,

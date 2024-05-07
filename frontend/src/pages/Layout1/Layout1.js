@@ -1,18 +1,18 @@
 import React, { Component, Suspense } from "react";
 
 // Importing Section
-const Navbar = React.lazy(() => import("../../component/Navbar/NavBar"));
+const Navbar = React.lazy(() => import("../../components/Navbar/NavBar"));
 
 const Section = React.lazy(() => import("./Section"));
-const About = React.lazy(() => import("../../component/About"));
-const Demos = React.lazy(() => import("../../component/Demos"));
-const FAQ = React.lazy(() => import("../../component/FAQ"));
-const Contact = React.lazy(() => import("../../component/Contact"));
-const Footer = React.lazy(() => import("../../component/Footer/Footer"));
+const About = React.lazy(() => import("../../components/About"));
+const Demos = React.lazy(() => import("../../components/Demos"));
+const FAQ = React.lazy(() => import("../../components/FAQ"));
+const Contact = React.lazy(() => import("../../components/Contact"));
+const Footer = React.lazy(() => import("../../components/Footer/Footer"));
 
 // import { Spinner } from "reactstrap";
 
-class Layout4 extends Component {
+class Layout extends Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -94,4 +94,4 @@ class Layout4 extends Component {
     );
   }
 }
-export default Layout4;
+export default Layout;

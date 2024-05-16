@@ -12,13 +12,12 @@ class Section extends Component {
     const key = file.name;
 
     try {
-      // Get the signed URL for uploading the file
+      // Get the signed URL for uploading the file to AWS S3
       const { signedUrl, fileLink } = await getSignedUrl({key, content_type});
 
-      // Upload the file to the signed URL  
+      // Upload the file to the signed URL directly from Client to AWS S3
       await uploadFileToSignedUrl(signedUrl, file, content_type, null, () => {
         this.setState({ fileLink });
-        // Handle successful upload (e.g., show the file link)
         console.log("File uploaded successfully. File link : ", fileLink);
       });
     } catch (error) {

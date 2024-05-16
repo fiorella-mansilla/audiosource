@@ -1,11 +1,31 @@
 import React, { Component } from "react";
 import { Container, Row, Col, Form, FormGroup, Label, Input , Button} from "reactstrap";
-
-// Import Background Image
+import { getSignedUrl, uploadFileToSignedUrl } from "../../api";
 import Background from "../../assets/images/hero-4-bg-img.png";
 
 
 class Section extends Component {
+  handleSubmit = async (e) => {
+    e.preventDefault();
+    const file = e.target.file.files[0]; // Get the selected file
+    const content_type = file.type;
+    const key = file.name;
+
+    try {
+      // Get the signed URL for uploading the file
+      const { signedUrl, fileLink } = await getSignedUrl({key, content_type});
+
+      // Upload the file to the signed URL  
+      await uploadFileToSignedUrl(signedUrl, file, content_type, null, () => {
+        this.setState({ fileLink });
+        // Handle successful upload (e.g., show the file link)
+        console.log("File uploaded successfully. File link : ", fileLink);
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
+  };
+
   render() {
     return (
       <React.Fragment>
@@ -21,10 +41,10 @@ class Section extends Component {
             </Col>
             <Col lg={4} className="offset-lg-2 col-md-8">
               <div className="hero-login-form mx-auto bg-white shadow p-4 rounded mt-5 mt-lg-0">
-                <Form>
+                <Form onSubmit={this.handleSubmit}>
                   <FormGroup className="mb-3"> 
                     <Label for="input-audio" className="h5 mb-4">Upload your Audio</Label>
-                    <Input id="input-audio" name="file" type="file" accept="audio/wav, audio/mp3" />
+                    <Input id="input-audio" name="file" type="file" accept="audio/wav, audio/mp3, audio/mpeg"/>
                   </FormGroup>
                   <FormGroup className="mb-3">
                     <Label for="sep-type" className="f-15">Separation Type</Label>

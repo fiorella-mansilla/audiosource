@@ -2,7 +2,6 @@ import React, { Component, Suspense } from "react";
 
 // Importing Section
 const Navbar = React.lazy(() => import("../../components/Navbar/NavBar"));
-
 const Section = React.lazy(() => import("./Section"));
 const About = React.lazy(() => import("../../components/About"));
 const Demos = React.lazy(() => import("../../components/Demos"));
@@ -78,8 +77,8 @@ class Layout extends Component {
           {/* Importing About */}
           <About />
 
-           {/* Importing Service */}
-           <Demos />
+          {/* Importing Service */}
+          <Demos />
 
           {/* Importing Feature */}
           <FAQ />

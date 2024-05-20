@@ -5,7 +5,7 @@ const apiClient = axios.create({
     baseURL: config.API_BASE_URL,
 });
 
-// Makes the call to use the signed URL using the key and the content type
+// Makes the call to create the signed URL using the key and the content type from the file
 export async function getSignedUrl({ key, content_type }) {
     try {
       const response = await apiClient.post("/s3/upload/signed_url", {
@@ -15,7 +15,7 @@ export async function getSignedUrl({ key, content_type }) {
       return response.data;
     } catch (error) {
       console.error("Error getting signed URL:", error);
-      throw error; // Rethrow the error for handling in the component
+      throw error; 
     }
   }
 
@@ -36,6 +36,6 @@ export async function getSignedUrl({ key, content_type }) {
       onComplete(response);
     } catch (error) {
       console.error("Error uploading file to signed URL:", error);
-      throw error; // Rethrow the error for handling in the component
+      throw error; 
     }
   }

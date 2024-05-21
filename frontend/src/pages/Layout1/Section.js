@@ -43,7 +43,7 @@ class Section extends Component {
                 <Form onSubmit={this.handleSubmit}>
                   <FormGroup className="mb-3"> 
                     <Label for="input-audio" className="h5 mb-4">Upload your Audio</Label>
-                    <Input id="input-audio" name="file" type="file" accept="audio/wav, audio/mp3, audio/mpeg"/>
+                    <Input id="input-audio" name="file" type="file" accept="audio/wav, audio/mp3"/>
                   </FormGroup>
                   <FormGroup className="mb-3">
                     <Label for="sep-type" className="f-15">Separation Type</Label>

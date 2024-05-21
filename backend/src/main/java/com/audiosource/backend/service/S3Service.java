@@ -3,7 +3,6 @@ package com.audiosource.backend.service;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -42,7 +41,7 @@ public class S3Service {
         PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
 
         String signedUrl = presignedPutObjectRequest.url().toString();
-        String fileLink = "https://" + dotenv.get("S3_BUCKET") + ".s3." + Region.EU_NORTH_1 + ".amazonaws.com/" + key;
+        String fileLink = "https://" + dotenv.get("S3_BUCKET") + ".s3." + dotenv.get("AWS_REGION") + ".amazonaws.com/" + key;
 
         Map<String, String> data = new HashMap<>();
         data.put("signedUrl", signedUrl);
@@ -50,4 +49,6 @@ public class S3Service {
 
         return data;
     }
+
+    /* Lists all S3 Bucket Objects */
 }

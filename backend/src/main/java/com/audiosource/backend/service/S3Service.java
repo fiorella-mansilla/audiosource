@@ -1,16 +1,27 @@
 package com.audiosource.backend.service;
 
+import com.audiosource.backend.dto.S3ObjectDto;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.text.DecimalFormat;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class S3Service {
@@ -19,7 +30,13 @@ public class S3Service {
     private S3Presigner s3Presigner;
 
     @Autowired
+    private S3Client s3Client;
+
+    @Autowired
     private Dotenv dotenv;
+
+    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.0");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request */
     public Map<String, String> createPresignedPost(String key, String contentType){
@@ -50,5 +67,39 @@ public class S3Service {
         return data;
     }
 
-    /* Lists all S3 Bucket Objects */
+    /* Lists all files from the specified AWS S3 bucket, excluding empty directories. */
+    public List<S3ObjectDto> listObjects(String bucketName) {
+
+        ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
+                .builder()
+                .bucket(bucketName)
+                .build();
+
+        ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
+
+        return response.contents().stream()
+                .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /* Converts an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
+     * and the last modified date to a readable format. */
+    private S3ObjectDto toDto(S3Object s3Object) {
+
+        double size = s3Object.size() / (1024.0 * 1024.0);
+        String sizeMB = DECIMAL_FORMAT.format(size) + " MB";
+        String formattedLastModified = formatLastModified(s3Object.lastModified());
+
+        return new S3ObjectDto(
+                s3Object.key(),
+                sizeMB,
+                formattedLastModified
+        );
+    }
+
+    /* Formats an Instant to a readable date-time string. */
+    private String formatLastModified(Instant lastModified) {
+        return DATE_FORMATTER.format(lastModified);
+    }
 }

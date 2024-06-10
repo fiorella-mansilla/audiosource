@@ -4,15 +4,23 @@ import com.audiosource.backend.dto.S3ObjectDto;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,6 +73,37 @@ public class S3Service {
         data.put("fileLink", fileLink);
 
         return data;
+    }
+
+    /* Downloads a file from the specified S3 bucket and keyName to your Local file system. */
+    public void getObject(String bucketName, String keyName, String directoryPath) {
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest
+                    .builder()
+                    .bucket(bucketName)
+                    .key(keyName)
+                    .build();
+
+            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+            byte[] data = objectBytes.asByteArray();
+
+            int titleStart = keyName.indexOf("/");
+            String fileName = keyName.substring(titleStart + 1);
+            String filePath = directoryPath + fileName;
+
+            // Write the data to a local file
+            File myAudioFile = new File(filePath);
+            OutputStream outputStream = new FileOutputStream(myAudioFile);
+            outputStream.write(data);
+            System.out.println("Successfully obtained bytes from an S3 object");
+            outputStream.close();
+
+        } catch(IOException exc) {
+            exc.printStackTrace();
+        } catch(S3Exception e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
     }
 
     /* Lists all files from the specified AWS S3 bucket, excluding empty directories. */

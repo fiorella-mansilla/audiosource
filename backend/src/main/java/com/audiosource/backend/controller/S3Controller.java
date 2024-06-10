@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import software.amazon.awssdk.services.s3.model.S3Object;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -35,6 +35,29 @@ public class S3Controller {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error generating the pre-signed URL");
         }
+    }
+
+    @GetMapping("/download/latestFile")
+    public ResponseEntity<String> downloadLatestFile(@RequestParam String bucketName,
+                                                     @RequestParam String directoryPath) {
+        try {
+            List<S3ObjectDto> files = s3Service.listObjects(bucketName);
+
+            // Find the latest File based on the last modified Date
+            S3ObjectDto latestFile = files.stream()
+                    .max(Comparator.comparing(S3ObjectDto::getLastModified))
+                    .orElse(null);
+
+            // If the latestFile is not null, call the getObject function to download it
+            if(latestFile != null) {
+                s3Service.getObject(bucketName, latestFile.getKey(), directoryPath);
+            }
+
+        } catch (Exception e){
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error downloading the file from the S3 bucket");
+        }
+        return ResponseEntity.ok().body("Successful download of the latest file from the S3 bucket");
     }
 
     /* Lists all files from the specified S3 bucket. */

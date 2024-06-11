@@ -29,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,7 +77,7 @@ public class S3Service {
     }
 
     /* Downloads a file from the specified S3 bucket and keyName to your Local file system. */
-    public void getObject(String bucketName, String keyName, String directoryPath) {
+    public Optional<String> getObject(String bucketName, String keyName, String directoryPath) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest
                     .builder()
@@ -97,12 +98,15 @@ public class S3Service {
             outputStream.write(data);
             System.out.println("Successfully obtained bytes from an S3 object");
             outputStream.close();
+            return Optional.of(filePath);
 
         } catch(IOException exc) {
             exc.printStackTrace();
+            return Optional.empty();
         } catch(S3Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());
             System.exit(1);
+            return Optional.empty();
         }
     }
 

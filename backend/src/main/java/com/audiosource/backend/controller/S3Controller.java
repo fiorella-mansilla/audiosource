@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/s3")
@@ -50,14 +51,20 @@ public class S3Controller {
 
             // If the latestFile is not null, call the getObject function to download it
             if(latestFile != null) {
-                s3Service.getObject(bucketName, latestFile.getKey(), directoryPath);
+                Optional<String> filePath = s3Service.getObject(bucketName, latestFile.getKey(), directoryPath);
+                if (filePath.isPresent()) {
+                    return ResponseEntity.ok().body("Successful download of the latest file from the S3 bucket : " + filePath.get());
+                } else {
+                    return ResponseEntity.status(500).body("Error retrieving the file from the S3 bucket");
+                }
+            } else {
+                return ResponseEntity.status(404).body("No files found in the S3 Bucket");
             }
 
         } catch (Exception e){
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error downloading the file from the S3 bucket");
         }
-        return ResponseEntity.ok().body("Successful download of the latest file from the S3 bucket");
     }
 
     /* Lists all files from the specified S3 bucket. */

@@ -77,7 +77,7 @@ public class S3Service {
     }
 
     /* Downloads a file from the specified S3 bucket and keyName to your Local file system. */
-    public Optional<String> getObject(String bucketName, String keyName, String directoryPath) {
+    public Optional<String> getObjectFromBucket(String bucketName, String keyName, String directoryPath) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest
                     .builder()

@@ -49,9 +49,9 @@ public class S3Controller {
                     .max(Comparator.comparing(S3ObjectDto::getLastModified))
                     .orElse(null);
 
-            // If the latestFile is not null, call the getObject function to download it
+            // If the latestFile is not null, call the getObjectFromBucket function to download it
             if(latestFile != null) {
-                Optional<String> filePath = s3Service.getObject(bucketName, latestFile.getKey(), directoryPath);
+                Optional<String> filePath = s3Service.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath);
                 if (filePath.isPresent()) {
                     return ResponseEntity.ok().body("Successful download of the latest file from the S3 bucket : " + filePath.get());
                 } else {

@@ -1,7 +1,8 @@
 # AudioSource Project
 
-## Prerequisites
+## Prerequisites 
 
+-----
 Ensure you have the following installed:
 
 - Java 17 or higher
@@ -12,6 +13,7 @@ Ensure you have the following installed:
 
 ## Backend Setup
 
+-----
 1. **Clone the repositor to your local machine:**
 
 ```bash
@@ -43,8 +45,36 @@ S3_BUCKET_NAME=your-s3-bucket-name
 
 The project includes an `AppConfig` class that configures Dotenv to load environment variables from the `.env` file.
 
+## Demucs Setup
+
+---
+You will need to create a Python environment for being able to run Demucs from your project inside your local server. 
+For this, you can use Anaconda/Miniconda.
+
+1. **Check your system requirements :** https://docs.anaconda.com/miniconda/miniconda-system-requirements/
+2. **Install Miniconda with the CLI depending on your OS:** https://docs.anaconda.com/miniconda/#quick-command-line-install
+3. **Create your environment with a version of Python greater than 3.8 :** 
+```bash
+conda create -n demucs-env python>=3.8
+```
+4. **Make sure to activate your environment:**
+```bash
+conda activate demucs-env
+```
+5. **Install Demucs along with all required packages within your environment :**
+```bash
+conda install demucs
+conda list // To verify installation of Demucs with packages
+```
+
+#####  For macOS users :
+6. Torchaudio no longer supports decoding mp3s without ffmpeg installed.
+**You must install ffmpeg**, either through Anaconda (```conda install ffmpeg -c conda-forge```) 
+or with Homebrew for instance (```brew install ffmpeg```).
+
 ## Frontend Setup
 
+-----
 1. **Navigate to the frontend directory:**
 
 ```bash

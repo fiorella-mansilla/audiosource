@@ -2,7 +2,10 @@ package com.audiosource.backend.controller;
 
 import com.audiosource.backend.dto.S3ObjectDto;
 import com.audiosource.backend.service.S3Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +28,31 @@ public class S3Controller {
 
     @Autowired
     private S3Service s3Service;
+    private static final Logger logger = LoggerFactory.getLogger(S3Controller.class);
+
+    @PostMapping("/upload/separatedFiles")
+    public ResponseEntity<String> uploadDirectoryToS3(@RequestParam String directoryPath,
+                                                      @RequestParam String bucketName) {
+
+        Path path = Paths.get(directoryPath);
+
+        if (!Files.exists(path) || !Files.isDirectory(path)) {
+            return ResponseEntity.badRequest().body("Provided directory path is invalid or does not exist.");
+        }
+
+        try {
+            int failedTransfers = s3Service.uploadDirectoryToS3(directoryPath, bucketName);
+            if (failedTransfers > 0) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Upload completed with " + failedTransfers + " failed transfers.");
+            }
+            return ResponseEntity.ok("Upload successful with no failed transfers.");
+        } catch (Exception e) {
+            logger.error("Error during directory upload: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred during upload: " + e.getMessage());
+        }
+    }
 
     @PostMapping("/upload/signed_url")
     public ResponseEntity<?> createPresignedPost(@RequestBody Map<String, String> request) {

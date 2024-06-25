@@ -2,10 +2,14 @@ package com.audiosource.backend.service;
 
 import com.audiosource.backend.dto.S3ObjectDto;
 import io.github.cdimascio.dotenv.Dotenv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -16,11 +20,18 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
+import software.amazon.awssdk.transfer.s3.model.DirectoryUpload;
+import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,12 +54,80 @@ public class S3Service {
     private S3Client s3Client;
 
     @Autowired
+    private S3AsyncClient s3AsyncClient;
+
+    @Autowired
     private Dotenv dotenv;
 
+    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.0");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+    private static final String SUB_BUCKET = "separated/";
 
-    /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request */
+    /* Uploads a directory containing the processed audio files (output) from the local server to an AWS S3 bucket. */
+    public Integer uploadDirectoryToS3(String directoryPath, String bucketName) {
+
+        // Get full path of immediate child directory from the given directoryPath
+        Path sourceDirectory = Paths.get(directoryPath);
+        Path originalS30bject = getImmediateChildDirectory(sourceDirectory);
+
+        if (originalS30bject == null) {
+            logger.error("No immediate child directory found in {}", directoryPath);
+            return -1;
+        }
+
+        // Create a new name with a unique identifier for the directory be uploaded to S3
+        String newS3ObjectName = generateUniqueDirectoryName();
+
+        // Rename source Directory
+        try {
+            Path newS3Object = originalS30bject.resolveSibling(newS3ObjectName);
+            Files.move(originalS30bject, newS3Object);
+        } catch (IOException e) {
+            logger.error("Failed to rename the source Directory", e);
+            return -1;
+        }
+
+        // Create S3TransferManager instance
+        S3TransferManager transferManager = S3TransferManager.builder().s3Client(s3AsyncClient).build();
+
+        DirectoryUpload directoryUpload = transferManager.uploadDirectory(UploadDirectoryRequest.builder()
+                .source(sourceDirectory)
+                .bucket(bucketName)
+                .s3Prefix(SUB_BUCKET)
+                .build());
+
+        // Wait for the transfer to be completed
+        CompletedDirectoryUpload completedDirectoryUpload = directoryUpload.completionFuture().join();
+
+        // Log out and clean up any failed uploads
+        completedDirectoryUpload.failedTransfers()
+                .forEach(fail -> {
+                    String keyFailedUpload = SUB_BUCKET + fail.toString();
+                    logger.warn("Object [{}] failed to transfer, cleaning up....", keyFailedUpload);
+                    deleteObjectFromS3(bucketName, keyFailedUpload);
+                });
+
+        return completedDirectoryUpload.failedTransfers().size();
+    }
+
+    /* Deletes a specific object (file/directory) from the S3 bucket */
+    public void deleteObjectFromS3(String bucketName, String key) {
+        try {
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+
+            s3Client.deleteObject(deleteObjectRequest);
+            logger.info("Successfully deleted object [{}] from bucket [{}]", key, bucketName);
+        } catch (S3Exception e) {
+            logger.error("Failed to delete object [{}] from bucket [{}]: {}",
+                    key, bucketName, e.awsErrorDetails().errorMessage());
+        }
+    }
+
+    /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request of a File to an S3 bucket. */
     public Map<String, String> createPresignedPost(String key, String contentType){
 
         // Create a PutObjectRequest to be pre-signed
@@ -139,6 +219,31 @@ public class S3Service {
                 sizeMB,
                 formattedLastModified
         );
+    }
+
+    /**
+     * Helper method to get the immediate child directory from the given directory path.
+     * @param directoryPath The path of the parent directory.
+     * @return The path of the immediate child directory, or null if none exists or an error occurs.
+     */
+    private Path getImmediateChildDirectory(Path directoryPath) {
+        try {
+            return Files.list(directoryPath)
+                    .filter(Files::isDirectory)
+                    .findFirst()
+                    .orElse(null);
+        } catch (IOException e) {
+            logger.error("Error while getting immediate child directory", e);
+            return null;
+        }
+    }
+
+    /* Generates a unique name for each output directory of the separated files */
+    private String generateUniqueDirectoryName() {
+        DateTimeFormatter customFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").withZone(ZoneId.systemDefault());
+        String date = customFormatter.format(Instant.now());
+        String shortenedUuid = UUID.randomUUID().toString().substring(0,8);
+        return date + "_" + shortenedUuid;
     }
 
     /* Formats an Instant to a readable date-time string. */

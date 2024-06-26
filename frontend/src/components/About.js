@@ -5,9 +5,6 @@ import { Col, Container, Row } from "reactstrap";
 import Img1 from "../assets/images/about/img-1.png";
 import Img2 from "../assets/images/about/img-2.png";
 
-//import icon
-import FeatherIcon from "feather-icons-react";
-
 export default class About extends Component {
   render() {
     return (
@@ -26,10 +23,6 @@ export default class About extends Component {
               <Col lg={4}>
                 <h2 className="fw-normal line-height-1_4 mb-4">AI-Powered Music <span className="fw-medium">Separator</span></h2>
                 <p className="text-muted mb-4">Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil atque corrupti molestiae.</p>
-                <p className="f-17 text-muted"><FeatherIcon className="icon-xs text-primary icon-fill-primary icon mr-2" icon="grid" /> 
-                Ut enim ad minima veniam</p>
-                <p className="f-17 text-muted"><FeatherIcon className="icon-xs text-primary icon-fill-primary icon mr-2" icon="layout" />   Nemo enim ipsam</p>
-                <p className="f-17 text-muted mb-4"><FeatherIcon className="icon-xs text-primary icon-fill-primary icon mr-2" icon="monitor" />   At vero eos accusamus iusto</p>
               </Col>
               <Col lg={4}>
                 <div className="card border-0">

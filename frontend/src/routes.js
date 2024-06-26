@@ -1,7 +1,7 @@
-import Layout1 from "./pages/Layout1/Layout1";
+import Layout from "./pages/Layout/Layout";
 
 const routes = [
-  { path: "/", component: <Layout1 /> },
+  { path: "/", component: <Layout /> },
 ];
 
 export default routes;

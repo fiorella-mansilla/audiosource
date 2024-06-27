@@ -55,13 +55,13 @@ public class S3Controller {
     }
 
     @PostMapping("/upload/signed_url")
-    public ResponseEntity<?> createPresignedPost(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> createPresignedPutRequest(@RequestBody Map<String, String> request) {
 
         try {
             // All the put objects will be located in the `originals` S3 sub-bucket
             String key = "originals/" + request.get("key");
             String contentType = request.get("content_type");
-            Map<String, String> data = s3Service.createPresignedPost(key, contentType);
+            Map<String, String> data = s3Service.createPresignedPutRequest(key, contentType);
             return ResponseEntity.ok().body(data);
         } catch (Exception e) {
             e.printStackTrace();

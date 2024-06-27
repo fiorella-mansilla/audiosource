@@ -63,7 +63,6 @@ public class S3Service {
     /* Create a pre-signed URL to download an object in a subsequent GET request. */
 
 
-
     /* Upload a directory containing the processed audio files (output) from the local server to an AWS S3 bucket. */
     public Integer uploadDirectoryToS3(String directoryPath, String bucketName) {
 
@@ -77,7 +76,7 @@ public class S3Service {
         }
 
         // Create a new name with a unique identifier for the directory be uploaded to S3
-        String newS3ObjectName = S3Utils.generateUniqueDirectoryName();
+        String newS3ObjectName = S3Utils.generateUniqueDirectoryName() + ".zip";
 
         // Rename source Directory
         try {

@@ -4,6 +4,7 @@ import com.audiosource.backend.service.S3Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +12,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class S3Utils {
 
@@ -19,8 +22,28 @@ public class S3Utils {
             .withZone(ZoneId.systemDefault());
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
 
-    // Directory Utilities
+    // Zip Utilities
 
+    public static byte[] toZipDirectory(Path sourceDirectory) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(byteArrayOutputStream)) {
+            Files.walk(sourceDirectory)
+                    .filter(path -> !Files.isDirectory(path))
+                    .forEach(path -> {
+                        ZipEntry zipEntry = new ZipEntry(sourceDirectory.relativize(path).toString());
+                        try {
+                            zipOutputStream.putNextEntry(zipEntry);
+                            Files.copy(path, zipOutputStream);
+                            zipOutputStream.closeEntry();
+                        } catch (IOException e) {
+                            throw new RuntimeException("Failed to zip directory", e);
+                        }
+            });
+        }
+        return byteArrayOutputStream.toByteArray();
+    }
+
+    // Directory Utilities
     /**
      * Helper method to get the immediate child directory from the given directory path.
      * @param directoryPath The path of the parent directory.

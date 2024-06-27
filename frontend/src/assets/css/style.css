@@ -39,20 +39,6 @@ h1, h2, h3, h4, h5, h6 {
   text-decoration: none;
 }
 
-.navbar .menu-social-icon li {
-  margin: 0 8px;
-}
-
-.navbar .menu-social-icon li .menu-social-link {
-  color: #9b9bae;
-  -webkit-transition: all 0.5s;
-  transition: all 0.5s;
-}
-
-.navbar .menu-social-icon li .menu-social-link:hover {
-  color: #3956de;
-}
-
 .navbar-custom {
   padding: 14px 0px;
   width: 100%;
@@ -62,14 +48,6 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-transition: all 0.5s ease-in-out;
   transition: all 0.5s ease-in-out;
   background-color: transparent;
-}
-
-.navbar-custom .logo .logo-dark {
-  display: none;
-}
-
-.navbar-custom .logo .ligo-light {
-  display: inline-block;
 }
 
 .navbar-custom .navbar-nav li a {
@@ -136,28 +114,6 @@ h1, h2, h3, h4, h5, h6 {
   color: #ffffff !important;
 }
 
-.navbar-light .menu-social-icon li {
-  margin: 0 8px;
-}
-
-.navbar-light .menu-social-icon li .menu-social-link {
-  color: rgba(255, 255, 255, 0.6) !important;
-  -webkit-transition: all 0.5s;
-  transition: all 0.5s;
-}
-
-.navbar-light .menu-social-icon li .menu-social-link:hover {
-  color: #ffffff !important;
-}
-
-.navbar-light .logo .logo-dark {
-  display: none !important;
-}
-
-.navbar-light .logo .logo-light {
-  display: inline-block !important;
-}
-
 /*---NAVBAR STICKY--*/
 .nav-sticky.navbar-custom {
   margin-top: 0px;
@@ -183,14 +139,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .nav-sticky.navbar-custom .navbar-nav li.active a, .nav-sticky.navbar-custom .navbar-nav li a:hover, .nav-sticky.navbar-custom .navbar-nav li a:active {
   color: #3956de !important;
-}
-
-.nav-sticky .logo .logo-dark {
-  display: inline-block !important;
-}
-
-.nav-sticky .logo .logo-light {
-  display: none !important;
 }
 
 .navbar-toggler:focus {

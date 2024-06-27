@@ -10,25 +10,6 @@
     }
 }
 
-.navbar {
-    .menu-social-icon {
-        li {
-            margin: 0 8px;
-
-            .menu-social-link {
-                color: $muted;
-                transition: all 0.5s;
-
-                &:hover {
-                    color: $primary;
-                }
-            }
-        }
-
-    }
-}
-
-
 .navbar-custom {
     padding: 14px 0px;
     width: 100%;
@@ -38,27 +19,21 @@
     transition: all 0.5s ease-in-out;
     background-color: transparent;
 
-    .logo {
-        .logo-dark {
-            display: none;
-        }
-
-        .ligo-light {
-            display: inline-block;
-        }
-    }
 
     .navbar-nav {
+        display: flex;
+        justify-content: center;
+        flex-grow: 1;
         li {
             a {
                 line-height: 26px;
                 color: $muted;
-                font-size: 15px;
-                font-weight: 400;
+                font-size: 20.5px;
+                font-weight: 500;
                 transition: all 0.3s;
                 background-color: transparent !important;
                 padding: 6px 0;
-                margin: 0 18px;
+                margin: 0 25px;
             }
 
             .nav-link {
@@ -71,14 +46,6 @@
         li a:hover,
         li a:active {
             color: $primary !important;
-        }
-
-        &.menu-social-icon {
-            .nav-item {
-                .nav-link {
-                    margin: 0 10px !important;
-                }
-            }
         }
     }
 
@@ -132,21 +99,6 @@
         }
     }
 
-    .menu-social-icon {
-        li {
-            margin: 0 8px;
-
-            .menu-social-link {
-                color: rgba($white, 0.6) !important;
-                transition: all 0.5s;
-
-                &:hover {
-                    color: $white !important;
-                }
-            }
-        }
-    }
-
     .logo {
         .logo-dark {
             display: none !important;
@@ -154,23 +106,6 @@
 
         .logo-light {
             display: inline-block !important;
-        }
-    }
-
-    &.nav-sticky {
-        .menu-social-icon {
-            li {
-                margin: 0 8px;
-
-                .menu-social-link {
-                    color: $muted !important;
-                    transition: all 0.5s;
-
-                    &:hover {
-                        color: $primary !important;
-                    }
-                }
-            }
         }
     }
 }
@@ -284,23 +219,6 @@
             }
         }
 
-    }
-
-    .navbar {
-        .menu-social-icon {
-            li {
-                margin: 0 8px;
-
-                .menu-social-link {
-                    color: $muted !important;
-                    transition: all 0.5s;
-
-                    &:hover {
-                        color: $primary !important;
-                    }
-                }
-            }
-        }
     }
 
     .nav-sticky {

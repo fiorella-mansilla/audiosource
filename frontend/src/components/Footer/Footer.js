@@ -6,9 +6,6 @@ import FooterLink from "../Footer/Footer_link";
 // Footer Image
 import footer_image from "../../assets/images/hero-1-bg-img.png";
 
-import logolight from "../../assets/images/logo-light.png";
-// Import Logo
-
 class Footer extends Component {
   constructor(props) {
     super(props);
@@ -57,9 +54,6 @@ class Footer extends Component {
             <Row>
               <Col lg={4}>
                 <div className="mb-5">
-                  <Link to="#">
-                    <img src={logolight} alt="" className="" height="28" />
-                  </Link>
                   <p className="text-white-50 my-4">Cras ultricies mi eu turpis sit hendrerit fringilla vestibulum ante ipsum primis in faucibus ultrices posuere cubilia.</p>
                 </div>
               </Col>

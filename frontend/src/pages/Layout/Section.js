@@ -41,8 +41,10 @@ class Section extends Component {
             <Col lg={4} className="offset-lg-2 col-md-8">
               <div className="hero-login-form mx-auto bg-white shadow p-4 rounded mt-5 mt-lg-0">
                 <Form onSubmit={this.handleSubmit}>
-                  <FormGroup className="mb-3"> 
-                    <Label for="input-audio" className="h5 mb-4">Upload your Audio</Label>
+                  <FormGroup className="mb-3">
+                    <div className="text-center mb-4 w-100">
+                      <Label for="input-audio" className="h5">Upload your Audio</Label>
+                      </div> 
                     <Input id="input-audio" name="file" type="file" accept="audio/wav, audio/mp3"/>
                   </FormGroup>
                   <FormGroup className="mb-3">
@@ -65,7 +67,7 @@ class Section extends Component {
                     </Input>
                   </FormGroup>
                   <div class ="d-grid gap-2 mx-auto">
-                    <Button type="submit" color="primary" className="btn btn-primary btn-lg w-100 mt-2">Separate<i className="mdi mdi-telegram ml-2"></i></Button>
+                    <Button type="submit" color="primary" className="btn btn-primary btn-lg w-100 mt-2">Submit<i className="mdi mdi-telegram ml-2"></i></Button>
                   </div>
                 </Form>
               </div>

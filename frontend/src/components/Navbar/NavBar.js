@@ -28,7 +28,7 @@ class NavbarPage extends Component {
           <Navbar
             expand="lg"
             fixed={this.props.top === true ? "top" : ""}
-            className={this.props.navClass + " fixed-top navbar-custom sticky sticky-dark align-items-center"}
+            className={this.props.navClass + " fixed-top navbar-custom sticky sticky-dark align-items-center "}
             id="navbar"
             container
           >
@@ -38,7 +38,7 @@ class NavbarPage extends Component {
             <Collapse
               id="navbarCollapse"
               isOpen={this.state.isOpenMenu}
-              className=" navbar-collapse"
+              className=" navbar-collapse "
             >
               <ScrollspyNav
                 scrollTargetIds={targetId}

@@ -19,12 +19,14 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
-import software.amazon.awssdk.transfer.s3.model.DirectoryUpload;
-import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
+import software.amazon.awssdk.transfer.s3.model.FileUpload;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -39,75 +41,120 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
 public class S3Service {
-
-    @Autowired
-    private S3Presigner s3Presigner;
-
-    @Autowired
-    private S3Client s3Client;
-
-    @Autowired
-    private S3AsyncClient s3AsyncClient;
-
-    @Autowired
-    private Dotenv dotenv;
+    private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
+    private final S3AsyncClient s3AsyncClient;
+    private final Dotenv dotenv;
 
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.0");
     private static final String SUB_BUCKET = "separated/";
 
-    /* Create a pre-signed URL to download an object in a subsequent GET request. */
+    @Autowired
+    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, Dotenv dotenv) {
+        this.s3Presigner = s3Presigner;
+        this.s3Client = s3Client;
+        this.s3AsyncClient = s3AsyncClient;
+        this.dotenv = dotenv;
+    }
 
-
-    /* Upload a directory containing the processed audio files (output) from the local server to an AWS S3 bucket. */
-    public Integer uploadDirectoryToS3(String directoryPath, String bucketName) {
-
-        // Get full path of immediate child directory from the given directoryPath
+    /**
+     * Uploads a directory as a ZIP file to an S3 bucket and returns a pre-signed URL for downloading the ZIP file.
+     *
+     * @param directoryPath The local directory path to upload.
+     * @param bucketName    The name of the S3 bucket.
+     * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
+     */
+    public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) {
         Path sourceDirectory = Paths.get(directoryPath);
-        Path originalS30bject = S3Utils.getImmediateChildDirectory(sourceDirectory);
 
-        if (originalS30bject == null) {
-            logger.error("No immediate child directory found in {}", directoryPath);
-            return -1;
-        }
-
-        // Create a new name with a unique identifier for the directory be uploaded to S3
-        String newS3ObjectName = S3Utils.generateUniqueDirectoryName() + ".zip";
-
-        // Rename source Directory
         try {
-            Path newS3Object = originalS30bject.resolveSibling(newS3ObjectName);
-            Files.move(originalS30bject, newS3Object);
+            Path immediateChildDirectory = S3Utils.getImmediateChildDirectory(sourceDirectory);
+
+            if (immediateChildDirectory == null) {
+                throw new IllegalArgumentException("No immediate child directory found in " + directoryPath);
+            }
+
+            Path zipS3File = prepareDirectoryForUpload(immediateChildDirectory);
+            uploadLargeFileToS3(zipS3File, bucketName);
+
+            return createPresignedGetRequest(bucketName, zipS3File);
+
         } catch (IOException e) {
-            logger.error("Failed to rename the source Directory", e);
-            return -1;
+            logger.error("An error occurred while preparing the directory for upload: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to prepare directory for upload", e);
+        } catch (Exception e) {
+            logger.error("An error occurred during the upload process: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload directory as zip to S3", e);
         }
+    }
 
-        // Create S3TransferManager instance
-        S3TransferManager transferManager = S3TransferManager.builder().s3Client(s3AsyncClient).build();
+    /**
+     * Prepares a directory for upload to S3 by renaming it with a unique name and creating a ZIP file.
+     *
+     * @param originalDirectory The original directory path to prepare for upload.
+     * @return The path to the ZIP file created for the directory.
+     * @throws IOException If an I/O error occurs during directory preparation.
+     */
+    public Path prepareDirectoryForUpload(Path originalDirectory) throws IOException {
 
-        DirectoryUpload directoryUpload = transferManager.uploadDirectory(UploadDirectoryRequest.builder()
-                .source(sourceDirectory)
-                .bucket(bucketName)
-                .s3Prefix(SUB_BUCKET)
-                .build());
+        String newDirectoryName = S3Utils.generateUniqueDirectoryName();
+        Path renamedDirectory = originalDirectory.resolveSibling(newDirectoryName);
+        Files.move(originalDirectory, renamedDirectory);
 
-        // Wait for the transfer to be completed
-        CompletedDirectoryUpload completedDirectoryUpload = directoryUpload.completionFuture().join();
+        return S3Utils.toZipDirectory(renamedDirectory);
+    }
 
-        // Log out and clean up any failed uploads
-        completedDirectoryUpload.failedTransfers()
-                .forEach(fail -> {
-                    String keyFailedUpload = SUB_BUCKET + fail.toString();
-                    logger.warn("Object [{}] failed to transfer, cleaning up....", keyFailedUpload);
-                    deleteObjectFromS3(bucketName, keyFailedUpload);
-                });
+    /**
+     * Uploads a large file to S3 using a TransferManager from AWS, blocking until the upload is complete.
+     *
+     * @param zipS3File The path to the ZIP file to upload.
+     * @param bucketName The name of the S3 bucket.
+     * @throws Exception If an error occurs during the upload process.
+     */
+    public void uploadLargeFileToS3(Path zipS3File, String bucketName) throws Exception {
+        try (S3TransferManager transferManager = S3TransferManager.builder()
+                     .s3Client(s3AsyncClient)
+                     .build()) {
 
-        return completedDirectoryUpload.failedTransfers().size();
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(SUB_BUCKET + zipS3File.getFileName().toString())
+                    .build();
+
+            UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
+                    .putObjectRequest(putObjectRequest)
+                    .source(zipS3File)
+                    .build();
+
+            FileUpload fileUpload = transferManager.uploadFile(uploadFileRequest);
+            CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
+            future.join(); // Wait until the upload is complete
+
+            logger.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+        }
+    }
+
+    /**
+     * Creates a pre-signed URL for downloading an object from an S3 bucket.
+     *
+     * @param bucketName The name of the S3 bucket.
+     * @param zipS3File  The path to the ZIP file in S3.
+     * @return A pre-signed URL for downloading the object, valid for a limited duration.
+     */
+    public String createPresignedGetRequest(String bucketName, Path zipS3File) {
+        GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(60))
+                .getObjectRequest(req -> req.bucket(bucketName).key(SUB_BUCKET + zipS3File.getFileName().toString()))
+                .build();
+
+        PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
+        return presignedGetObjectRequest.url().toString();
     }
 
     /* Deletes a specific object (file/directory) from the S3 bucket */

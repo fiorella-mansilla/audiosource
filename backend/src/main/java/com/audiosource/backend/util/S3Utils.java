@@ -5,9 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -24,9 +26,14 @@ public class S3Utils {
 
     // Zip Utilities
 
-    public static byte[] toZipDirectory(Path sourceDirectory) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        try (ZipOutputStream zipOutputStream = new ZipOutputStream(byteArrayOutputStream)) {
+    public static Path toZipDirectory(Path sourceDirectory) throws IOException {
+
+        // Compute the path for the zip file
+        Path outputZipPath = Paths.get(sourceDirectory.toString() + ".zip");
+
+        try (FileOutputStream fileOutputStream = new FileOutputStream(outputZipPath.toFile());
+             ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)) {
+
             Files.walk(sourceDirectory)
                     .filter(path -> !Files.isDirectory(path))
                     .forEach(path -> {
@@ -38,9 +45,9 @@ public class S3Utils {
                         } catch (IOException e) {
                             throw new RuntimeException("Failed to zip directory", e);
                         }
-            });
+                    });
         }
-        return byteArrayOutputStream.toByteArray();
+        return outputZipPath;
     }
 
     // Directory Utilities

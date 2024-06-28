@@ -2,8 +2,6 @@ package com.audiosource.backend.controller;
 
 import com.audiosource.backend.dto.S3ObjectDto;
 import com.audiosource.backend.service.S3Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +12,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -28,29 +23,35 @@ public class S3Controller {
 
     @Autowired
     private S3Service s3Service;
-    private static final Logger logger = LoggerFactory.getLogger(S3Controller.class);
 
+    /**
+     * Endpoint to upload a directory as a ZIP file to S3 and return a pre-signed URL for downloading the ZIP file.
+     *
+     * @param directoryPath The local directory path to upload.
+     * @param bucketName    The name of the S3 bucket.
+     * @return ResponseEntity with a success message and pre-signed URL upon successful upload,
+     *         or an error message if the upload fails.
+     */
     @PostMapping("/upload/separatedFiles")
-    public ResponseEntity<String> uploadDirectoryToS3(@RequestParam String directoryPath,
-                                                      @RequestParam String bucketName) {
-
-        Path path = Paths.get(directoryPath);
-
-        if (!Files.exists(path) || !Files.isDirectory(path)) {
-            return ResponseEntity.badRequest().body("Provided directory path is invalid or does not exist.");
-        }
+    public ResponseEntity<String> uploadDirectoryToS3(
+            @RequestParam String directoryPath,
+            @RequestParam String bucketName) {
 
         try {
-            int failedTransfers = s3Service.uploadDirectoryToS3(directoryPath, bucketName);
-            if (failedTransfers > 0) {
+            // Upload directory as a ZIP file to S3 and retrieve the pre-signed URL
+            String presignedGetUrl = s3Service.uploadDirectoryAsZipToS3(directoryPath, bucketName);
+
+            if (presignedGetUrl == null) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Upload completed with " + failedTransfers + " failed transfers.");
+                        .body("Failed to upload directory or generate pre-signed URL.");
             }
-            return ResponseEntity.ok("Upload successful with no failed transfers.");
+
+            return ResponseEntity.ok("Successful Upload. Pre-signed URL: " + presignedGetUrl);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            logger.error("Error during directory upload: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An error occurred during upload: " + e.getMessage());
+                    .body("An error occurred: " + e.getMessage());
         }
     }
 

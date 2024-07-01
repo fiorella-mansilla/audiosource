@@ -222,16 +222,16 @@ public class S3Service {
             File myAudioFile = new File(filePath);
             OutputStream outputStream = new FileOutputStream(myAudioFile);
             outputStream.write(data);
-            System.out.println("Successfully obtained bytes from an S3 object");
+            logger.info("Successfully obtained bytes from S3 object {}", keyName);
             outputStream.close();
             return Optional.of(filePath);
 
         } catch(IOException exc) {
-            exc.printStackTrace();
+            logger.error("IO error while getting object from bucket '{}': {}", bucketName, exc.getMessage(), exc);
             return Optional.empty();
         } catch(S3Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());
-            System.exit(1);
+            logger.error("S3 error while getting object from bucket '{}': {}", bucketName, e.awsErrorDetails().errorMessage(), e);
             return Optional.empty();
         }
     }
@@ -245,6 +245,7 @@ public class S3Service {
                 .build();
 
         ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
+        logger.info("Listed objects in bucket '{}'", bucketName);
 
         return response.contents().stream()
                 .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)

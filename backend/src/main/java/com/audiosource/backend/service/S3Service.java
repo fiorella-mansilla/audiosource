@@ -64,7 +64,8 @@ public class S3Service {
     }
 
     /**
-     * Uploads a directory as a ZIP file to an S3 bucket and returns a pre-signed URL for downloading the ZIP file.
+     * Uploads a zipped directory with the separated audios to an S3 bucket
+     * and returns a pre-signed URL for downloading the ZIP file.
      *
      * @param directoryPath The local directory path to upload.
      * @param bucketName    The name of the S3 bucket.
@@ -81,7 +82,7 @@ public class S3Service {
             }
 
             Path zipS3File = prepareDirectoryForUpload(immediateChildDirectory);
-            uploadLargeFileToS3(zipS3File, bucketName);
+            uploadFileFromLocalToS3(zipS3File, bucketName);
 
             return createPresignedGetRequest(bucketName, zipS3File);
 
@@ -111,13 +112,14 @@ public class S3Service {
     }
 
     /**
-     * Uploads a large file to S3 using a TransferManager from AWS, blocking until the upload is complete.
+     * Uploads a large file from the local directory to S3 using TransferManager from AWS,
+     * blocking until the upload is complete.
      *
      * @param zipS3File The path to the ZIP file to upload.
      * @param bucketName The name of the S3 bucket.
      * @throws Exception If an error occurs during the upload process.
      */
-    public void uploadLargeFileToS3(Path zipS3File, String bucketName) throws Exception {
+    public void uploadFileFromLocalToS3(Path zipS3File, String bucketName) throws Exception {
         try (S3TransferManager transferManager = S3TransferManager.builder()
                      .s3Client(s3AsyncClient)
                      .build()) {
@@ -141,7 +143,7 @@ public class S3Service {
     }
 
     /**
-     * Creates a pre-signed URL for downloading an object from an S3 bucket.
+     * Creates a pre-signed URL for directly downloading an object from an S3 bucket.
      *
      * @param bucketName The name of the S3 bucket.
      * @param zipS3File  The path to the ZIP file in S3.
@@ -157,52 +159,7 @@ public class S3Service {
         return presignedGetObjectRequest.url().toString();
     }
 
-    /* Deletes a specific object (file/directory) from the S3 bucket */
-    public void deleteObjectFromS3(String bucketName, String key) {
-        try {
-            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(key)
-                    .build();
-
-            s3Client.deleteObject(deleteObjectRequest);
-            logger.info("Successfully deleted object [{}] from bucket [{}]", key, bucketName);
-        } catch (S3Exception e) {
-            logger.error("Failed to delete object [{}] from bucket [{}]: {}",
-                    key, bucketName, e.awsErrorDetails().errorMessage());
-        }
-    }
-
-    /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request of a File to an S3 bucket. */
-    public Map<String, String> createPresignedPutRequest(String key, String contentType){
-
-        // Create a PutObjectRequest to be pre-signed
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(dotenv.get("S3_BUCKET"))
-                .key(key)
-                .contentType(contentType)
-                .build();
-
-        // Create a PutObjectPresignRequest to specify the signature duration
-        PutObjectPresignRequest putObjectPresignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(10)) // The URL expires in 10 minutes.
-                .putObjectRequest(putObjectRequest)
-                .build();
-
-        // Generate the Pre-signed request with the S3-Presigner
-        PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
-
-        String signedUrl = presignedPutObjectRequest.url().toString();
-        String fileLink = "https://" + dotenv.get("S3_BUCKET") + ".s3." + dotenv.get("AWS_REGION") + ".amazonaws.com/" + key;
-
-        Map<String, String> data = new HashMap<>();
-        data.put("signedUrl", signedUrl);
-        data.put("fileLink", fileLink);
-
-        return data;
-    }
-
-    /* Downloads a file from the specified S3 bucket and keyName to your Local file system. */
+    /* Download a file from the specified S3 bucket and keyName to the Local file system. */
     public Optional<String> getObjectFromBucket(String bucketName, String keyName, String directoryPath) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest
@@ -236,7 +193,36 @@ public class S3Service {
         }
     }
 
-    /* Lists all files from the specified AWS S3 bucket, excluding empty directories. */
+    /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request of a File to an S3 bucket. */
+    public Map<String, String> createPresignedPutRequest(String key, String contentType){
+
+        // Create a PutObjectRequest to be pre-signed
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(dotenv.get("S3_BUCKET"))
+                .key(key)
+                .contentType(contentType)
+                .build();
+
+        // Create a PutObjectPresignRequest to specify the signature duration
+        PutObjectPresignRequest putObjectPresignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(10)) // The URL expires in 10 minutes.
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        // Generate the Pre-signed request with the S3-Presigner
+        PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
+
+        String signedUrl = presignedPutObjectRequest.url().toString();
+        String fileLink = "https://" + dotenv.get("S3_BUCKET") + ".s3." + dotenv.get("AWS_REGION") + ".amazonaws.com/" + key;
+
+        Map<String, String> data = new HashMap<>();
+        data.put("signedUrl", signedUrl);
+        data.put("fileLink", fileLink);
+
+        return data;
+    }
+
+    /* List all files from the specified AWS S3 bucket, excluding empty directories. */
     public List<S3ObjectDto> listObjects(String bucketName) {
 
         ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
@@ -253,7 +239,23 @@ public class S3Service {
                 .collect(Collectors.toList());
     }
 
-    /* Converts an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
+    /* Delete a specific object (file/directory) from the S3 bucket */
+    public void deleteObjectFromS3(String bucketName, String key) {
+        try {
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+
+            s3Client.deleteObject(deleteObjectRequest);
+            logger.info("Successfully deleted object [{}] from bucket [{}]", key, bucketName);
+        } catch (S3Exception e) {
+            logger.error("Failed to delete object [{}] from bucket [{}]: {}",
+                    key, bucketName, e.awsErrorDetails().errorMessage());
+        }
+    }
+
+    /* Convert an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
      * and the last modified date to a readable format. */
     private S3ObjectDto toDto(S3Object s3Object) {
 

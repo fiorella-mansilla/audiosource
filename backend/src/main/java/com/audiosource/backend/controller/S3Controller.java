@@ -75,7 +75,7 @@ public class S3Controller {
 
         try {
             // All the put objects will be located in the `originals` S3 sub-bucket
-            String key = "originals/" + request.get("key");
+            String key = request.get("key");
             String contentType = request.get("content_type");
             Map<String, String> data = s3Service.createPresignedPutRequest(key, contentType);
             return ResponseEntity.ok().body(data);

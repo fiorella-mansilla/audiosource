@@ -1,25 +1,34 @@
 import React, { Component } from "react";
 import { Container, Row, Col, Form, FormGroup, Label, Input , Button} from "reactstrap";
-import { getSignedUrl, uploadFileToSignedUrl } from "../../api";
+import { getSignedUrl, uploadFileToS3SignedUrl } from "../../api";
 import Background from "../../assets/images/hero-4-bg-img.png";
 
 
 class Section extends Component {
   handleSubmit = async (e) => {
     e.preventDefault();
+    
     const file = e.target.file.files[0]; // Get the selected file
     const content_type = file.type;
-    const key = file.name;
+    const key = `originals/${file.name}`;
 
     try {
       // Get the signed URL for uploading the file to AWS S3
       const { signedUrl, fileLink } = await getSignedUrl({key, content_type});
 
       // Upload the file to the signed URL directly from Client to AWS S3
-      await uploadFileToSignedUrl(signedUrl, file, content_type, null, () => {
-        this.setState({ fileLink });
-        console.log("File uploaded successfully. File link : ", fileLink);
-      });
+      await uploadFileToS3SignedUrl(key, signedUrl, file, content_type,
+        (progressEvent) => {
+          // Handle progress if needed
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Uploading File to S3... : ${percentCompleted}%`);
+        },
+        (response) => {
+          // Handle completion
+          this.setState({ fileLink });
+          console.log("File uploaded successfully. File link : ", fileLink);
+        }
+      );
     } catch (error) {
       console.error("Error uploading file:", error);
     }

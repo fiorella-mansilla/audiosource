@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.567.0",
+    "@aws-sdk/client-s3": "^3.606.0",
+    "@aws-sdk/lib-storage": "^3.606.0",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",

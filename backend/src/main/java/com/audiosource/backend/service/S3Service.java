@@ -24,9 +24,14 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedFileDownload;
 import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
+import software.amazon.awssdk.transfer.s3.model.Download;
+import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.FileDownload;
 import software.amazon.awssdk.transfer.s3.model.FileUpload;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -160,37 +165,98 @@ public class S3Service {
     }
 
     /* Download a file from the specified S3 bucket and keyName to the Local file system. */
-    public Optional<String> getObjectFromBucket(String bucketName, String keyName, String directoryPath) {
+    public Optional<String> getObjectFromBucket(String bucketName, String keyName, String directoryPath, long fileSizeInBytes) {
+
+        final long LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB
+
+        S3TransferManager transferManager = S3TransferManager.builder()
+                .s3Client(s3AsyncClient)
+                .build();
+
         try {
-            GetObjectRequest getObjectRequest = GetObjectRequest
-                    .builder()
-                    .bucket(bucketName)
-                    .key(keyName)
-                    .build();
-
-            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
-            byte[] data = objectBytes.asByteArray();
-
             int titleStart = keyName.indexOf("/");
             String fileName = keyName.substring(titleStart + 1);
             String filePath = directoryPath + fileName;
-
-            // Write the data to a local file
             File myAudioFile = new File(filePath);
-            OutputStream outputStream = new FileOutputStream(myAudioFile);
-            outputStream.write(data);
-            logger.info("Successfully obtained bytes from S3 object {}", keyName);
-            outputStream.close();
+
+            if (fileSizeInBytes > LARGE_FILE_THRESHOLD) {
+
+                /* If the file is larger than 100MB, then we use S3TransferManager for retrieving it */
+                DownloadFileRequest downloadFileRequest = DownloadFileRequest.builder()
+                        .getObjectRequest(b -> b.bucket(bucketName).key(keyName))
+                        .addTransferListener(LoggingTransferListener.create())  // Add listener.
+                        .destination(myAudioFile.toPath())
+                        .build();
+
+                FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
+
+                CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
+                logger.info("Content length [{}]", downloadResult.response().contentLength());
+                logger.info("Successfully downloaded {} to {}", keyName, filePath);
+
+            } else {
+                // Otherwise, we use GetObjectRequest for smaller files
+                GetObjectRequest getObjectRequest = GetObjectRequest
+                        .builder()
+                        .bucket(bucketName)
+                        .key(keyName)
+                        .build();
+
+                ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+                byte[] data = objectBytes.asByteArray();
+
+                // Write the data to a local file
+                try (OutputStream outputStream = new FileOutputStream(myAudioFile)) {
+                    outputStream.write(data);
+                }
+                logger.info("Successfully obtained bytes from S3 object {}", keyName);
+            }
             return Optional.of(filePath);
 
         } catch(IOException exc) {
             logger.error("IO error while getting object from bucket '{}': {}", bucketName, exc.getMessage(), exc);
             return Optional.empty();
         } catch(S3Exception e) {
-            System.err.println(e.awsErrorDetails().errorMessage());
             logger.error("S3 error while getting object from bucket '{}': {}", bucketName, e.awsErrorDetails().errorMessage(), e);
             return Optional.empty();
+        } catch (Exception e) {
+            logger.error("Error downloading object from S3 bucket '{}': {}", bucketName, e.getMessage(), e);
+            return Optional.empty();
+        } finally {
+            transferManager.close();
         }
+    }
+
+    /* List all files from the specified AWS S3 bucket, excluding empty directories. */
+    public List<S3ObjectDto> listObjects(String bucketName) {
+
+        ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
+                .builder()
+                .bucket(bucketName)
+                .build();
+
+        ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
+        logger.info("Listed objects in bucket '{}'", bucketName);
+
+        return response.contents().stream()
+                .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /* Convert an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
+     * and the last modified date to a readable format. */
+    private S3ObjectDto toDto(S3Object s3Object) {
+
+        double size = s3Object.size() / (1024.0 * 1024.0);
+        String sizeMB = DECIMAL_FORMAT.format(size) + " MB";
+        String formattedLastModified = S3Utils.formatLastModified(s3Object.lastModified());
+
+        return new S3ObjectDto(
+                s3Object.key(),
+                sizeMB,
+                formattedLastModified
+        );
     }
 
     /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request of a File to an S3 bucket. */
@@ -222,23 +288,6 @@ public class S3Service {
         return data;
     }
 
-    /* List all files from the specified AWS S3 bucket, excluding empty directories. */
-    public List<S3ObjectDto> listObjects(String bucketName) {
-
-        ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
-                .builder()
-                .bucket(bucketName)
-                .build();
-
-        ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
-        logger.info("Listed objects in bucket '{}'", bucketName);
-
-        return response.contents().stream()
-                .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
-
     /* Delete a specific object (file/directory) from the S3 bucket */
     public void deleteObjectFromS3(String bucketName, String key) {
         try {
@@ -253,20 +302,5 @@ public class S3Service {
             logger.error("Failed to delete object [{}] from bucket [{}]: {}",
                     key, bucketName, e.awsErrorDetails().errorMessage());
         }
-    }
-
-    /* Convert an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
-     * and the last modified date to a readable format. */
-    private S3ObjectDto toDto(S3Object s3Object) {
-
-        double size = s3Object.size() / (1024.0 * 1024.0);
-        String sizeMB = DECIMAL_FORMAT.format(size) + " MB";
-        String formattedLastModified = S3Utils.formatLastModified(s3Object.lastModified());
-
-        return new S3ObjectDto(
-                s3Object.key(),
-                sizeMB,
-                formattedLastModified
-        );
     }
 }

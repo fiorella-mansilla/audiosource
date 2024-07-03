@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -106,7 +107,12 @@ public class S3Controller {
 
             // If the latestFile is not null, call the getObjectFromBucket function to download it
             if(latestFile != null) {
-                Optional<String> filePath = s3Service.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath);
+                // Convert size from MB to bytes
+                double sizeInMB = Double.parseDouble(latestFile.getSizeMB().replace(" MB", ""));
+                long fileSizeInBytes = (long) (sizeInMB * 1024 * 1024);
+
+                Optional<String> filePath = s3Service.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath, fileSizeInBytes);
+
                 if (filePath.isPresent()) {
                     return ResponseEntity.ok("Successful download of the latest file from the S3 bucket: "
                             + filePath.get());

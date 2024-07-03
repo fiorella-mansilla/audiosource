@@ -29,8 +29,8 @@ export async function getSignedUrl({ key, content_type }) {
     const s3Client = new S3Client({ 
         region: config.AWS.Region,
         credentials: {
-            accessKeyId: config.AWS.AccessKeyId,
-            secretAccessKey: config.AWS.AWSSecretKey,
+            accessKeyId: config.AWS.AccessKey,
+            secretAccessKey: config.AWS.SecretAccessKey,
         },
     });
 

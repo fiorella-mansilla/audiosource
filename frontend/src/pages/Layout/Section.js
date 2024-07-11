@@ -14,7 +14,7 @@ class Section extends Component {
 
     try {
       // Get the signed URL for uploading the file to AWS S3
-      const { signedUrl, fileLink } = await getSignedUrl({key, content_type});
+      const signedUrl = await getSignedUrl({key, content_type});
 
       // Upload the file to the signed URL directly from Client to AWS S3
       await uploadFileToS3SignedUrl(key, signedUrl, file, content_type,
@@ -25,8 +25,7 @@ class Section extends Component {
         },
         (response) => {
           // Handle completion
-          this.setState({ fileLink });
-          console.log("File uploaded successfully. File link : ", fileLink);
+          console.log("File uploaded successfully.");
         }
       );
     } catch (error) {

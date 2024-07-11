@@ -26,7 +26,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.CompletedFileDownload;
 import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
-import software.amazon.awssdk.transfer.s3.model.Download;
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.FileDownload;
 import software.amazon.awssdk.transfer.s3.model.FileUpload;
@@ -259,8 +258,8 @@ public class S3Service {
         );
     }
 
-    /* Creates a pre-signed URL with the link of the Object to use in a subsequent PUT request of a File to an S3 bucket. */
-    public Map<String, String> createPresignedPutRequest(String key, String contentType){
+    /* Creates a pre-signed URL to use in a subsequent PUT request of a File to an S3 bucket. */
+    public String createPresignedPutRequest(String key, String contentType){
 
         // Create a PutObjectRequest to be pre-signed
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -279,13 +278,10 @@ public class S3Service {
         PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
 
         String signedUrl = presignedPutObjectRequest.url().toString();
-        String fileLink = "https://" + dotenv.get("S3_BUCKET") + ".s3." + dotenv.get("AWS_REGION") + ".amazonaws.com/" + key;
+        logger.info("Presigned URL to upload a file to: [{}]", signedUrl);
+        logger.info("HTTP method: [{}]", presignedPutObjectRequest.httpRequest().method());
 
-        Map<String, String> data = new HashMap<>();
-        data.put("signedUrl", signedUrl);
-        data.put("fileLink", fileLink);
-
-        return data;
+        return presignedPutObjectRequest.url().toExternalForm();
     }
 
     /* Delete a specific object (file/directory) from the S3 bucket */

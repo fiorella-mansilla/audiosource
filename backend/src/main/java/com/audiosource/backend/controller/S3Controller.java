@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/s3")
@@ -65,28 +65,6 @@ public class S3Controller {
     }
 
     /**
-     * Creates a pre-signed PUT request for the user to upload a file to the S3 bucket.
-     *
-     * @param request A map containing the key and content_type for the object.
-     * @return ResponseEntity with the pre-signed URL and additional data upon success,
-     *         or an error message if the URL generation fails.
-     */
-    @PostMapping("/upload/signed_url")
-    public ResponseEntity<?> createPresignedPutRequest(@RequestBody Map<String, String> request) {
-
-        try {
-            // All the put objects will be located in the `originals` S3 sub-bucket
-            String key = request.get("key");
-            String contentType = request.get("content_type");
-            Map<String, String> data = s3Service.createPresignedPutRequest(key, contentType);
-            return ResponseEntity.ok().body(data);
-        } catch (Exception e) {
-            logger.error("Error generating the pre-signed URL: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error generating the pre-signed URL");
-        }
-    }
-
-    /**
      * Downloads the latest file from the specified S3 bucket.
      *
      * @param bucketName    The name of the S3 bucket.
@@ -100,8 +78,13 @@ public class S3Controller {
         try {
             List<S3ObjectDto> files = s3Service.listObjects(bucketName);
 
-            // Find the latest File based on the last modified Date
-            S3ObjectDto latestFile = files.stream()
+            // List files that are stored inside 'originals/' from the S3 bucket
+            List<S3ObjectDto> originalFiles = files.stream()
+                    .filter(file -> file.getKey().startsWith("originals/"))
+                    .collect(Collectors.toList());
+
+            // Retrieve the latest File from the original Files based on the last modified Date
+            S3ObjectDto latestFile = originalFiles.stream()
                     .max(Comparator.comparing(S3ObjectDto::getLastModified))
                     .orElse(null);
 
@@ -145,6 +128,28 @@ public class S3Controller {
             logger.error("Error listing objects from the S3 bucket: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.emptyList());
+        }
+    }
+
+    /**
+     * Creates a pre-signed PUT request for the user to upload a file to the S3 bucket.
+     *
+     * @param request A map containing the key and content_type for the object.
+     * @return ResponseEntity with the pre-signed URL and additional data upon success,
+     *         or an error message if the URL generation fails.
+     */
+    @PostMapping("/upload/signed_url")
+    public ResponseEntity<?> createPresignedPutRequest(@RequestBody Map<String, String> request) {
+
+        try {
+            // All the put objects will be located in the `originals` S3 sub-bucket
+            String key = request.get("key");
+            String contentType = request.get("content_type");
+            String data = s3Service.createPresignedPutRequest(key, contentType);
+            return ResponseEntity.ok().body(data);
+        } catch (Exception e) {
+            logger.error("Error generating the pre-signed URL: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error generating the pre-signed URL");
         }
     }
 }

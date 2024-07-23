@@ -243,7 +243,7 @@ public class S3Service {
 
     /* Convert an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place
      * and the last modified date to a readable format. */
-    private S3ObjectDto toDto(S3Object s3Object) {
+    public S3ObjectDto toDto(S3Object s3Object) {
 
         double size = s3Object.size() / (1024.0 * 1024.0);
         String sizeMB = DECIMAL_FORMAT.format(size) + " MB";

@@ -12,7 +12,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.http.SdkHttpRequest;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -23,17 +25,26 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import io.github.cdimascio.dotenv.Dotenv;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedFileDownload;
+import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.FileDownload;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,7 +57,13 @@ public class S3ServiceTest {
     private S3Client s3Client;
 
     @Mock
+    private S3AsyncClient s3AsyncClient;
+
+    @Mock
     private Dotenv dotenv;
+
+    @Mock
+    private S3TransferManager s3TransferManager ;
 
     @InjectMocks
     private S3Service s3Service;
@@ -59,6 +76,47 @@ public class S3ServiceTest {
 
     @BeforeEach
     void setUp() {
+    }
+
+    @Test
+    void testGetObjectFromBucketLargeFile() throws IOException {
+
+        String keyName = "path/to/largefile.mp3";
+        String directoryPath = "/local/dir/";
+        long fileSizeInBytes = 150 * 1024 * 1024; // 150MB
+        String expectedFilePath = directoryPath + "largefile.mp3";
+
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        File myAudioFile = new File(expectedFilePath);
+
+        DownloadFileRequest downloadFileRequest = mock(DownloadFileRequest.class);
+        FileDownload fileDownload = mock(FileDownload.class);
+        CompletedFileDownload completedFileDownload = mock(CompletedFileDownload.class);
+        GetObjectResponse getObjectResponse = mock(GetObjectResponse.class);
+
+        // Custom matcher for DownloadFileRequest
+        ArgumentMatcher<DownloadFileRequest> requestMatcher = request ->
+                request.getObjectRequest().bucket().equals(bucketName) &&
+                        request.getObjectRequest().key().equals(keyName) &&
+                        request.destination().equals(Paths.get(expectedFilePath));
+
+        // Mocking the transfer manager and download file completion
+        when(s3TransferManager.downloadFile(argThat(requestMatcher))).thenReturn(fileDownload);
+
+        CompletableFuture<CompletedFileDownload> completableFuture = CompletableFuture.completedFuture(completedFileDownload);
+        when(fileDownload.completionFuture()).thenReturn(completableFuture);
+        when(completedFileDownload.response()).thenReturn(getObjectResponse);
+        when(getObjectResponse.contentLength()).thenReturn(fileSizeInBytes);
+
+        Optional<String> result = s3Service.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+
+        assertEquals(Optional.of(expectedFilePath), result);
+        verify(s3TransferManager).downloadFile(argThat(requestMatcher));
+        myAudioFile.delete(); // Clean up
     }
 
     @Test

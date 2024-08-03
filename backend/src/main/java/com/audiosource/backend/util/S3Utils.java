@@ -18,10 +18,10 @@ import java.util.zip.ZipOutputStream;
 
 public class S3Utils {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter
+    public static DateTimeFormatter DATE_FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
-    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
+    public static Logger logger = LoggerFactory.getLogger(S3Service.class);
 
     // Zip Utilities
 

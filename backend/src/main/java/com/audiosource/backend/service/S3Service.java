@@ -74,6 +74,7 @@ public class S3Service {
      * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
      */
     public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) {
+
         Path sourceDirectory = Paths.get(directoryPath);
 
         try {
@@ -188,6 +189,7 @@ public class S3Service {
                 FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
 
                 CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
+
                 logger.info("Content length [{}]", downloadResult.response().contentLength());
                 logger.info("Successfully downloaded {} to {}", keyName, filePath);
 

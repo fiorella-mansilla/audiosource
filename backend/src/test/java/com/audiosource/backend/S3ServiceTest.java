@@ -50,6 +50,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -117,20 +118,19 @@ public class S3ServiceTest {
     @Test
     void testUploadDirectoryAsZipToS3_Success() throws Exception {
 
-        String directoryPath = "testDirectory";
+        String directoryPath = "/Users/fiorellamansilla/demucs/separated/htdemucs/";
         Path sourceDirectory = Paths.get(directoryPath);
 
         Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
         Path zipFilePath = immediateChildDirectory.resolveSibling("childDirectory.zip");
 
         mockedS3Utils = mockStatic(S3Utils.class);
+
         mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
         mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("uniqueDirectoryName");
         mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(zipFilePath);
 
         // Mock S3 transfer manager and upload process
-        S3TransferManager transferManager = mock(S3TransferManager.class);
-        FileUpload fileUpload = mock(FileUpload.class);
         CompletableFuture<CompletedFileUpload> future = CompletableFuture.completedFuture(mock(CompletedFileUpload.class));
         when(fileUpload.completionFuture()).thenReturn(future);
 
@@ -235,10 +235,14 @@ public class S3ServiceTest {
     void testGetObjectFromBucket_SmallFile_Success() throws IOException {
 
         String keyName = "test/small-file.mp3";
-        String directoryPath = "local/dir/";
-        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
+        String directoryPath = "/Users/fiorellamansilla/demucs/originals/";
 
-        byte[] fileData = "test content".getBytes();
+        long fileSizeInBytes = 50 * 1024; // 50 MB
+
+        byte[] fileData = new byte[(int) fileSizeInBytes];
+        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
+
+        // Create a ResponseBytes object with the file data
         ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), fileData);
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
 

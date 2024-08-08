@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.Logger;
+import software.amazon.awssdk.arns.ArnResource;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.http.SdkHttpMethod;
@@ -26,6 +27,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -74,7 +76,7 @@ public class S3ServiceTest {
     private S3AsyncClient s3AsyncClient;
 
     @Mock
-    private S3TransferManager transferManager;
+    private S3TransferManager s3TransferManager;
 
     @Mock
     private FileUpload fileUpload;
@@ -118,6 +120,7 @@ public class S3ServiceTest {
     @Test
     void testUploadDirectoryAsZipToS3_Success() throws Exception {
 
+        // TODO: Antes del test, creo que el directorio _temp con childDirectory y lo borro al final
         String directoryPath = "/Users/fiorellamansilla/demucs/separated/htdemucs/";
         Path sourceDirectory = Paths.get(directoryPath);
 
@@ -136,7 +139,7 @@ public class S3ServiceTest {
 
         try (MockedStatic<S3TransferManager> mockedTransferManager = mockStatic(S3TransferManager.class)) {
             mockedTransferManager.when(S3TransferManager::builder).thenReturn(mock(S3TransferManager.Builder.class));
-            mockedTransferManager.when(() -> transferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+            mockedTransferManager.when(() -> s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
 
             String presignedUrl = s3Service.uploadDirectoryAsZipToS3(directoryPath, bucketName);
 
@@ -144,7 +147,7 @@ public class S3ServiceTest {
             mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
             mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
             mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
-            mockedTransferManager.verify(() -> transferManager.uploadFile(any(UploadFileRequest.class)), times(1));
+            mockedTransferManager.verify(() -> s3TransferManager.uploadFile(any(UploadFileRequest.class)), times(1));
         }
     }
 
@@ -155,21 +158,22 @@ public class S3ServiceTest {
 
         // Mock the file existence check and size retrieval
         mockedFiles = mockStatic(Files.class);
-
         mockedFiles.when(() -> Files.exists(testFilePath)).thenReturn(true);
         mockedFiles.when(() -> Files.size(testFilePath)).thenReturn(1024L);
 
-        // Mock the CompletableFuture for the file upload
-        CompletableFuture<CompletedFileUpload> mockFuture = mock(CompletableFuture.class);
-        when(mockFuture.join()).thenReturn(mock(CompletedFileUpload.class));
-        when(fileUpload.completionFuture()).thenReturn(mockFuture);
+        CompletedFileUpload completedFileUpload = CompletedFileUpload.builder().build();
+        completedFileUpload.response().hashCode();
 
-        // Setup the mock TransferManager
-        when(transferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+        CompletableFuture<CompletedFileUpload> mockFuture = CompletableFuture.completedFuture(completedFileUpload);
+
+        when(mockFuture.join()).thenReturn(completedFileUpload);
+
+        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+        when(fileUpload.completionFuture()).thenReturn(mockFuture);
 
         s3Service.uploadFileFromLocalToS3(testFilePath, bucketName);
 
-        verify(transferManager).uploadFile(uploadFileRequestCaptor.capture());
+        verify(s3TransferManager).uploadFile(uploadFileRequestCaptor.capture());
         UploadFileRequest capturedUploadFileRequest = uploadFileRequestCaptor.getValue();
         assertNotNull(capturedUploadFileRequest);
         assertEquals(testFilePath, capturedUploadFileRequest.source());
@@ -260,18 +264,28 @@ public class S3ServiceTest {
 
         String keyName = "test/large-file.mp3";
         String directoryPath = "local/dir/";
+
         long fileSizeInBytes = 150 * 1024 * 1024; // 150MB
+        byte[] fileData = new byte[(int) fileSizeInBytes];
+        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
 
         FileDownload fileDownload = mock(FileDownload.class);
-        CompletableFuture<CompletedFileDownload> future = CompletableFuture.completedFuture(mock(CompletedFileDownload.class));
+        CompletedFileDownload.Builder builder = CompletedFileDownload.builder();
 
-        when(transferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
+        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().contentLength(fileSizeInBytes).build(), fileData);
+        builder.response(responseBytes.response());
+
+        CompletedFileDownload completedFileDownload = builder.build();
+
+        CompletableFuture<CompletedFileDownload> future = CompletableFuture.completedFuture(completedFileDownload);
+
+        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
         when(fileDownload.completionFuture()).thenReturn(future);
 
         Optional<String> result = s3Service.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
 
         assertTrue(result.isPresent());
-        verify(transferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
+        verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
         assertEquals(directoryPath + "large-file.mp3", result.get());
     }
 

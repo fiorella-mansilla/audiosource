@@ -10,6 +10,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
 import static software.amazon.awssdk.transfer.s3.SizeConstant.MB;
 
@@ -65,6 +66,14 @@ public class AwsConfig {
                 .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
                 .targetThroughputInGbps(20.0)
                 .minimumPartSizeInBytes(8 * MB)
+                .build();
+    }
+
+    @Bean
+    public S3TransferManager transferManager() {
+        S3AsyncClient s3AsyncClient = s3AsyncClient();
+        return S3TransferManager.builder()
+                .s3Client(s3AsyncClient)
                 .build();
     }
 }

@@ -51,6 +51,7 @@ public class S3Service {
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
+    private final S3TransferManager s3TransferManager;
     private final Dotenv dotenv;
 
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
@@ -58,10 +59,11 @@ public class S3Service {
     private static final String SUB_BUCKET = "separated/";
 
     @Autowired
-    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, Dotenv dotenv) {
+    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, S3TransferManager s3TransferManager, Dotenv dotenv) {
         this.s3Presigner = s3Presigner;
         this.s3Client = s3Client;
         this.s3AsyncClient = s3AsyncClient;
+        this.s3TransferManager = s3TransferManager;
         this.dotenv = dotenv;
     }
 
@@ -167,10 +169,6 @@ public class S3Service {
 
         final long LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB
 
-        S3TransferManager transferManager = S3TransferManager.builder()
-                .s3Client(s3AsyncClient)
-                .build();
-
         try {
             int titleStart = keyName.indexOf("/");
             String fileName = keyName.substring(titleStart + 1);
@@ -186,7 +184,7 @@ public class S3Service {
                         .destination(myAudioFile.toPath())
                         .build();
 
-                FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
+                FileDownload downloadFile = s3TransferManager.downloadFile(downloadFileRequest);
 
                 CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
 
@@ -222,7 +220,7 @@ public class S3Service {
             logger.error("Error downloading object from S3 bucket '{}': {}", bucketName, e.getMessage(), e);
             return Optional.empty();
         } finally {
-            transferManager.close();
+            s3TransferManager.close();
         }
     }
 

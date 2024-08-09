@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
-import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -19,7 +18,6 @@ import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -52,9 +50,11 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,9 +74,6 @@ public class S3ServiceTest {
     private S3Client s3Client;
 
     @Mock
-    private S3AsyncClient s3AsyncClient;
-
-    @Mock
     private S3TransferManager s3TransferManager;
 
     @Mock
@@ -89,75 +86,114 @@ public class S3ServiceTest {
     private Dotenv dotenv;
 
     private final String bucketName = "test-bucket";
-    private final String key = "test-key";
+    private final String keyName = "test-key";
     private final String contentType = "audio/mp3";
-    private final String zipFileName = "test-zip-file.zip";
+    private final String expectedPresignedUrl = "https://test-bucket.s3.amazonaws.com/test-key";
     private static final String SUB_BUCKET = "separated/";
+    private Path tempDirectory;
     private MockedStatic<S3Utils> mockedS3Utils;
-    private MockedStatic<Files> mockStaticFiles;
 
     @BeforeEach
-    void setUp() {
-        lenient().when(s3AsyncClient.serviceName()).thenReturn("s3");
+    void setUp() throws IOException {
+        tempDirectory = Files.createTempDirectory("_temp");
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
+
+        deleteDirectoryRecursively(tempDirectory);
+
         // Close static mocks if they were initialized
         if (mockedS3Utils != null) {
             mockedS3Utils.close();
         }
-        if (mockStaticFiles != null) {
-            mockStaticFiles.close();
+    }
+
+    private void deleteDirectoryRecursively(Path directory) throws IOException {
+        if (Files.exists(directory)) {
+            try (Stream<Path> walk = Files.walk(directory)) {
+                walk.sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(file -> {
+                            if (!file.delete()) {
+                                System.err.println("Unable to delete file: " + file.getAbsolutePath());
+                            }
+                        });
+            }
         }
     }
 
-    @Test
-    void testUploadDirectoryAsZipToS3_Success() throws Exception {
+    private Path createTestFile(String fileName) throws IOException {
+        Path file = tempDirectory.resolve(fileName);
+        Files.createFile(file);
+        return file;
+    }
 
-        // TODO: Antes del test, creo que el directorio _temp con childDirectory y lo borro al final
-        String directoryPath = "/Users/fiorellamansilla/demucs/separated/htdemucs/";
-        Path sourceDirectory = Paths.get(directoryPath);
+    @Test
+    void uploadDirectoryAsZipToS3_ValidInput_ShouldReturnPresignedURL() throws Exception {
+
+        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+        Files.createDirectories(sourceDirectory);
 
         Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
+        Files.createDirectory(immediateChildDirectory);
+
         Path zipFilePath = immediateChildDirectory.resolveSibling("childDirectory.zip");
 
-        mockedS3Utils = mockStatic(S3Utils.class);
-
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
-        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("uniqueDirectoryName");
-        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(zipFilePath);
-
         FileUpload fileUpload = mock(FileUpload.class);
-        // Mock S3 transfer manager and upload process
-        CompletableFuture<CompletedFileUpload> future = CompletableFuture.completedFuture(mock(CompletedFileUpload.class));
+
+        mockedS3Utils = mockStatic(S3Utils.class);
+        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
+        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(zipFilePath);
+        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedChildDirectory");
+
+        CompletedFileUpload completedFileUpload = CompletedFileUpload.builder()
+                .response(PutObjectResponse.builder().build())
+                .build();
+
+        CompletableFuture<CompletedFileUpload> future = CompletableFuture.completedFuture(completedFileUpload);
+
+        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
         when(fileUpload.completionFuture()).thenReturn(future);
 
-        try (MockedStatic<S3TransferManager> mockedTransferManager = mockStatic(S3TransferManager.class)) {
-            mockedTransferManager.when(S3TransferManager::builder).thenReturn(mock(S3TransferManager.Builder.class));
-            mockedTransferManager.when(() -> s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+        PresignedGetObjectRequest presignedGetObjectRequest = mock(PresignedGetObjectRequest.class);
+        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
 
-            String presignedUrl = s3Service.uploadDirectoryAsZipToS3(directoryPath, bucketName);
+        // Custom matcher for GetObjectPresignRequest
+        ArgumentMatcher<GetObjectPresignRequest> requestMatcher = request ->
+                request.signatureDuration().equals(Duration.ofMinutes(60)) &&
+                        request.getObjectRequest().bucket().equals(bucketName) &&
+                        request.getObjectRequest().key().equals(SUB_BUCKET + zipFilePath.getFileName().toString());
 
-            assertNotNull(presignedUrl);
-            mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-            mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
-            mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
-            mockedTransferManager.verify(() -> s3TransferManager.uploadFile(any(UploadFileRequest.class)), times(1));
-        }
+        when(s3Presigner.presignGetObject(argThat(requestMatcher))).thenReturn(presignedGetObjectRequest);
+
+        String presignedUrl = s3Service.uploadDirectoryAsZipToS3(sourceDirectory.toString(), bucketName);
+
+        assertEquals(expectedPresignedUrl, presignedUrl);
+        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
+        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
+
+        verify(s3TransferManager).uploadFile(any(UploadFileRequest.class));
+
+        ArgumentCaptor<UploadFileRequest> uploadFileRequestCaptor = ArgumentCaptor.forClass(UploadFileRequest.class);
+        verify(s3TransferManager).uploadFile(uploadFileRequestCaptor.capture());
+        UploadFileRequest capturedRequest = uploadFileRequestCaptor.getValue();
+
+        assertAll("uploadFileRequest",
+                () -> assertEquals(zipFilePath, capturedRequest.source(), "The source should match the zip file path"),
+                () -> assertEquals(bucketName, capturedRequest.putObjectRequest().bucket(), "The bucket name should match"),
+                () -> assertEquals(SUB_BUCKET + zipFilePath.getFileName().toString(),
+                        capturedRequest.putObjectRequest().key(), "The key should match the expected S3 key")
+        );
     }
 
     @Test
     void uploadFileFromLocalToS3_ValidInput_ShouldUploadSuccessfully() throws Exception {
 
-        Path zipS3File = Paths.get("test.zip");
+        Path zipS3File = createTestFile("test.zip");
 
         FileUpload fileUpload = mock(FileUpload.class);
-
-        // Mock the file existence check and size retrieval
-        mockStaticFiles = mockStatic(Files.class);
-        mockStaticFiles.when(() -> Files.exists(zipS3File)).thenReturn(true);
-        mockStaticFiles.when(() -> Files.size(zipS3File)).thenReturn(1024L);
 
         CompletedFileUpload completedFileUpload = CompletedFileUpload.builder()
                 .response(PutObjectResponse.builder().build())
@@ -188,13 +224,9 @@ public class S3ServiceTest {
     }
 
     @Test
-    void uploadFileFromLocalToS3_TransferManagerException_ShouldHandleException() {
+    void uploadFileFromLocalToS3_TransferManagerException_ShouldHandleException() throws IOException {
 
-        Path zipS3File = Paths.get("test.zip");
-
-        mockStaticFiles = mockStatic(Files.class);
-        mockStaticFiles.when(() -> Files.exists(zipS3File)).thenReturn(true);
-        mockStaticFiles.when(() -> Files.size(zipS3File)).thenReturn(1024L);
+        Path zipS3File = createTestFile("test.zip");
 
         FileUpload fileUpload = mock(FileUpload.class);
         CompletableFuture<CompletedFileUpload> future = new CompletableFuture<>();
@@ -214,41 +246,36 @@ public class S3ServiceTest {
     }
 
     @Test
-    public void testPrepareDirectoryForUpload() throws IOException {
+    public void prepareDirectoryForUpload_ValidDirectory_ShouldReturnZippedPath() throws IOException {
 
-        Path originalDirectory = Paths.get("testDir");
+        Path originalDirectory = tempDirectory.resolve("testDir");
+        Files.createDirectory(originalDirectory);
+
         Path renamedDirectory = originalDirectory.resolveSibling("renamedDir");
-        Path zipPath = Paths.get("renamedDir.zip");
+        Path zipPath = renamedDirectory.resolveSibling("renamedDir.zip");
 
-        // Initialize static mocks
         mockedS3Utils = mockStatic(S3Utils.class);
-        mockStaticFiles = mockStatic(Files.class);
-
-        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedDir");
         mockedS3Utils.when(() -> S3Utils.toZipDirectory(any(Path.class))).thenReturn(zipPath);
-        mockStaticFiles.when(() -> Files.move(any(Path.class), any(Path.class))).thenReturn(renamedDirectory);
+        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedDir");
 
         Path result = s3Service.prepareDirectoryForUpload(originalDirectory);
 
         assertEquals(zipPath, result);
         mockedS3Utils.verify(S3Utils::generateUniqueDirectoryName);
         mockedS3Utils.verify(() -> S3Utils.toZipDirectory(renamedDirectory));
-        mockStaticFiles.verify(() -> Files.move(originalDirectory, renamedDirectory));
 
-        // Clean up test directory structure
-        Files.deleteIfExists(renamedDirectory);
-        Files.deleteIfExists(originalDirectory);
+        assertFalse(Files.exists(originalDirectory), "The original directory should be renamed.");
+        assertTrue(Files.exists(renamedDirectory), "The renamed directory should exist.");
     }
 
     @Test
-    void testCreatePresignedGetRequest() throws MalformedURLException {
+    void createPresignedGetRequest_ValidInput_ShouldReturnPresignedURL() throws MalformedURLException {
 
-        Path zipS3File = Paths.get(zipFileName);
-        String expectedUrl = "https://example.com/presigned-url";
+        Path zipS3File = Paths.get("test-zip-file.zip");
 
         // Mock the presigned URL request and response
         PresignedGetObjectRequest presignedGetObjectRequest = mock(PresignedGetObjectRequest.class);
-        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedUrl).toURL());
+        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
 
         // Custom matcher for GetObjectPresignRequest
         ArgumentMatcher<GetObjectPresignRequest> requestMatcher = request ->
@@ -261,15 +288,14 @@ public class S3ServiceTest {
 
         String actualUrl = s3Service.createPresignedGetRequest(bucketName, zipS3File);
 
-        assertEquals(expectedUrl, actualUrl);
+        assertEquals(expectedPresignedUrl, actualUrl);
         verify(s3Presigner).presignGetObject(argThat(requestMatcher));
     }
 
     @Test
-    void testGetObjectFromBucket_SmallFile_Success() throws IOException {
+    void getObjectFromBucket_ValidSmallFile_ShouldDownloadSuccessfully() throws IOException {
 
-        String keyName = "test/small-file.mp3";
-        String directoryPath = "/Users/fiorellamansilla/demucs/originals/";
+        String directoryPath = tempDirectory.toString();
 
         long fileSizeInBytes = 50 * 1024; // 50 MB
 
@@ -283,18 +309,16 @@ public class S3ServiceTest {
         Optional<String> result = s3Service.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
 
         assertTrue(result.isPresent(), "The result should be present");
-        assertEquals(directoryPath + "small-file.mp3", result.get(), "The file path should match");
+        assertEquals(directoryPath + keyName, result.get(), "The file path should match");
 
-        // Verify that getObjectAsBytes was called
         verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
     }
 
     @Test
-    void getObjectFromBucket_LargeFile_Success() throws Exception {
+    void getObjectFromBucket_ValidLargeFile_ShouldDownloadSuccessfullyUsingTransferManager() throws Exception {
 
-        String keyName = "test/large-file.mp3";
-        String directoryPath = "local/dir/";
-        String expectedFilePath = directoryPath + "large-file.mp3";
+        String directoryPath = tempDirectory.toString();
+        String expectedFilePath = directoryPath + keyName;
 
         long fileSizeInBytes = 150 * 1024 * 1024; // 150MB
         byte[] fileData = new byte[(int) fileSizeInBytes];
@@ -338,10 +362,9 @@ public class S3ServiceTest {
     }
 
     @Test
-    void testGetObjectFromBucket_S3Exception() {
+    void getObjectFromBucket_S3ExceptionDuringDownload_ShouldReturnEmptyOptional() {
 
-        String keyName = "test/key";
-        String directoryPath = "local/dir/";
+        String directoryPath = tempDirectory.toString();
         long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
 
         // Create a mock AwsErrorDetails
@@ -362,16 +385,13 @@ public class S3ServiceTest {
     }
 
     @Test
-    void testCreatePresignedPutRequest() throws MalformedURLException {
+    void createPresignedPutRequest_ValidInput_ShouldReturnPresignedURL() throws MalformedURLException {
 
-        String expectedUrl = "https://test-bucket.s3.amazonaws.com/test-key";
-
-        // Mock dotenv to return the bucket name
         when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
 
         // Mock PresignedPutObjectRequest
         PresignedPutObjectRequest presignedPutObjectRequest = mock(PresignedPutObjectRequest.class);
-        when(presignedPutObjectRequest.url()).thenReturn(URI.create(expectedUrl).toURL());
+        when(presignedPutObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
 
         // Mock SdkHttpRequest
         SdkHttpRequest sdkHttpRequest = mock(SdkHttpRequest.class);
@@ -384,7 +404,7 @@ public class S3ServiceTest {
             PutObjectRequest putRequest = request.putObjectRequest();
             return request.signatureDuration().equals(Duration.ofMinutes(10)) &&
                     putRequest.bucket().equals(bucketName) &&
-                    putRequest.key().equals(key) &&
+                    putRequest.key().equals(keyName) &&
                     putRequest.contentType().equals(contentType);
         };
 
@@ -392,15 +412,15 @@ public class S3ServiceTest {
         when(s3Presigner.presignPutObject(argThat(requestMatcher)))
                 .thenReturn(presignedPutObjectRequest);
 
-        String result = s3Service.createPresignedPutRequest(key, contentType);
+        String result = s3Service.createPresignedPutRequest(keyName, contentType);
 
-        assertEquals(expectedUrl, result);
+        assertEquals(expectedPresignedUrl, result);
         verify(s3Presigner).presignPutObject(argThat(requestMatcher));
         verify(dotenv).get("S3_BUCKET");
     }
 
     @Test
-    void testListObjects() {
+    void listObjects_ValidBucket_ShouldReturnListOfS3ObjectDto() {
 
         S3Object s3Object = S3TestUtils.createTestS3Object(123L, Instant.now());
 
@@ -419,7 +439,7 @@ public class S3ServiceTest {
     }
 
     @Test
-    void testToDto() {
+    void toDto_ValidS3Object_ShouldReturnCorrectS3ObjectDto() {
 
         long sizeInBytes = 123456L;
         Instant lastModified = Instant.parse("2024-07-23T12:00:00Z");

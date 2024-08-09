@@ -51,18 +51,21 @@ public class S3Service {
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
+    private final S3TransferManager s3TransferManager;
     private final Dotenv dotenv;
 
-    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
+    private static Logger logger = LoggerFactory.getLogger(S3Service.class);
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.0");
     private static final String SUB_BUCKET = "separated/";
 
     @Autowired
-    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, Dotenv dotenv) {
+    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, S3TransferManager s3TransferManager, Dotenv dotenv, Logger logger) {
         this.s3Presigner = s3Presigner;
         this.s3Client = s3Client;
         this.s3AsyncClient = s3AsyncClient;
+        this.s3TransferManager = s3TransferManager;
         this.dotenv = dotenv;
+        this.logger = logger;
     }
 
     /**
@@ -74,6 +77,7 @@ public class S3Service {
      * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
      */
     public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) {
+
         Path sourceDirectory = Paths.get(directoryPath);
 
         try {
@@ -122,26 +126,22 @@ public class S3Service {
      * @throws Exception If an error occurs during the upload process.
      */
     public void uploadFileFromLocalToS3(Path zipS3File, String bucketName) throws Exception {
-        try (S3TransferManager transferManager = S3TransferManager.builder()
-                     .s3Client(s3AsyncClient)
-                     .build()) {
 
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(SUB_BUCKET + zipS3File.getFileName().toString())
-                    .build();
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(SUB_BUCKET + zipS3File.getFileName().toString())
+                .build();
 
-            UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
-                    .putObjectRequest(putObjectRequest)
-                    .source(zipS3File)
-                    .build();
+        UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
+                .putObjectRequest(putObjectRequest)
+                .source(zipS3File)
+                .build();
 
-            FileUpload fileUpload = transferManager.uploadFile(uploadFileRequest);
-            CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
-            future.join(); // Wait until the upload is complete
+        FileUpload fileUpload = s3TransferManager.uploadFile(uploadFileRequest);
+        CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
+        future.join(); // Wait until the upload is complete
 
-            logger.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
-        }
+        logger.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
     }
 
     /**
@@ -166,10 +166,6 @@ public class S3Service {
 
         final long LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB
 
-        S3TransferManager transferManager = S3TransferManager.builder()
-                .s3Client(s3AsyncClient)
-                .build();
-
         try {
             int titleStart = keyName.indexOf("/");
             String fileName = keyName.substring(titleStart + 1);
@@ -185,9 +181,10 @@ public class S3Service {
                         .destination(myAudioFile.toPath())
                         .build();
 
-                FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
+                FileDownload downloadFile = s3TransferManager.downloadFile(downloadFileRequest);
 
                 CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
+
                 logger.info("Content length [{}]", downloadResult.response().contentLength());
                 logger.info("Successfully downloaded {} to {}", keyName, filePath);
 
@@ -220,7 +217,7 @@ public class S3Service {
             logger.error("Error downloading object from S3 bucket '{}': {}", bucketName, e.getMessage(), e);
             return Optional.empty();
         } finally {
-            transferManager.close();
+            s3TransferManager.close();
         }
     }
 

@@ -1,6 +1,6 @@
-# AudioSource Project
+# AudioSource 
 
-## Prerequisites 
+## Prerequisites
 
 -----
 Ensure you have the following installed:
@@ -14,7 +14,7 @@ Ensure you have the following installed:
 ## Backend Setup
 
 -----
-1. **Clone the repositor to your local machine:**
+1. **Clone the repository to your local machine:**
 
 ```bash
   git clone https://github.com/fiorella-mansilla/audiosource.git
@@ -32,45 +32,64 @@ cd backend
 mvn clean install
 ```
 
-3. **Create a file with your environment variables for AWS S3:**
+4. **Configure AWS S3 Credentials:**
+
+Create a `.env` file in the backend directory with your AWS credentials:
 
 ```bash
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_REGION=your-aws-region
-S3_BUCKET_NAME=your-s3-bucket-name
+S3_BUCKET=your-s3-bucket-name
 ```
 
-4. **Dotenv configuration:**
-
-The project includes an `AppConfig` class that configures Dotenv to load environment variables from the `.env` file.
+The `AppConfig` class in the project uses Dotenv to load these environment variables.
 
 ## Demucs Setup
 
 ---
-You will need to create a Python environment for being able to run Demucs from your project inside your local server. 
-For this, you can use Anaconda/Miniconda.
+You need a Python environment to run Demucs locally. We recommend using Anaconda or Miniconda.
 
-1. **Check your system requirements :** https://docs.anaconda.com/miniconda/miniconda-system-requirements/
-2. **Install Miniconda with the CLI depending on your OS:** https://docs.anaconda.com/miniconda/#quick-command-line-install
-3. **Create your environment with a version of Python greater than 3.8 :** 
+1. **Verify System Requirements**
+Check the system requirements for Anaconda/Miniconda : 
+[Miniconda System Requirements](https://docs.anaconda.com/miniconda/miniconda-system-requirements/)
+
+2. **Install Miniconda**
+Install Miniconda for your operating system using the command-line instructions:
+[Miniconda Installation](https://docs.anaconda.com/miniconda/#quick-command-line-install)
+
+3. **Create a Python Environment :**
+Create a new Python environment with a version of Python greater than 3.8:
 ```bash
 conda create -n demucs-env python>=3.8
 ```
-4. **Make sure to activate your environment:**
+4. **Activate your Environment:**
 ```bash
 conda activate demucs-env
 ```
-5. **Install Demucs along with all required packages within your environment :**
+5. **Install Demucs and Required Packages :**
+Install Demucs within your environment:
 ```bash
 conda install demucs
-conda list // To verify installation of Demucs with packages
+```
+Verify the installation:
+```bash
+conda list
+```
+6. **Install FFmpeg (macOS Only)**
+
+For macOS users, Torchaudio no longer supports decoding mp3s without ffmpeg installed.
+Install ffmpeg using either Anaconda or Homebrew:
+
+- Using Anaconda:
+```bash
+conda install ffmpeg -c conda-forge
 ```
 
-#####  For macOS users :
-6. Torchaudio no longer supports decoding mp3s without ffmpeg installed.
-**You must install ffmpeg**, either through Anaconda (```conda install ffmpeg -c conda-forge```) 
-or with Homebrew for instance (```brew install ffmpeg```).
+- Using Homebrew:
+```bash
+brew install ffmpeg
+```
 
 ## Frontend Setup
 

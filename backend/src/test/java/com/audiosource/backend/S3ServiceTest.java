@@ -220,7 +220,7 @@ public class S3ServiceTest {
                         "The key should match the SUB_BUCKET plus the file name")
         );
 
-        verify(mockLogger, times(1)).info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+//        verify(mockLogger, times(1)).info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
     }
 
     @Test

@@ -54,18 +54,17 @@ public class S3Service {
     private final S3TransferManager s3TransferManager;
     private final Dotenv dotenv;
 
-    private static Logger logger = LoggerFactory.getLogger(S3Service.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(S3Service.class);
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.0");
     private static final String SUB_BUCKET = "separated/";
 
     @Autowired
-    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, S3TransferManager s3TransferManager, Dotenv dotenv, Logger logger) {
+    public S3Service(S3Presigner s3Presigner, S3Client s3Client, S3AsyncClient s3AsyncClient, S3TransferManager s3TransferManager, Dotenv dotenv) {
         this.s3Presigner = s3Presigner;
         this.s3Client = s3Client;
         this.s3AsyncClient = s3AsyncClient;
         this.s3TransferManager = s3TransferManager;
         this.dotenv = dotenv;
-        this.logger = logger;
     }
 
     /**
@@ -93,10 +92,10 @@ public class S3Service {
             return createPresignedGetRequest(bucketName, zipS3File);
 
         } catch (IOException e) {
-            logger.error("An error occurred while preparing the directory for upload: {}", e.getMessage(), e);
+            LOGGER.error("An error occurred while preparing the directory for upload: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to prepare directory for upload", e);
         } catch (Exception e) {
-            logger.error("An error occurred during the upload process: {}", e.getMessage(), e);
+            LOGGER.error("An error occurred during the upload process: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload directory as zip to S3", e);
         }
     }
@@ -141,7 +140,7 @@ public class S3Service {
         CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
         future.join(); // Wait until the upload is complete
 
-        logger.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+        LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
     }
 
     /**
@@ -185,8 +184,8 @@ public class S3Service {
 
                 CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
 
-                logger.info("Content length [{}]", downloadResult.response().contentLength());
-                logger.info("Successfully downloaded {} to {}", keyName, filePath);
+                LOGGER.info("Content length [{}]", downloadResult.response().contentLength());
+                LOGGER.info("Successfully downloaded {} to {}", keyName, filePath);
 
             } else {
                 // Otherwise, we use GetObjectRequest for smaller files
@@ -203,18 +202,18 @@ public class S3Service {
                 try (OutputStream outputStream = new FileOutputStream(myAudioFile)) {
                     outputStream.write(data);
                 }
-                logger.info("Successfully obtained bytes from S3 object {}", keyName);
+                LOGGER.info("Successfully obtained bytes from S3 object {}", keyName);
             }
             return Optional.of(filePath);
 
         } catch(IOException exc) {
-            logger.error("IO error while getting object from bucket '{}': {}", bucketName, exc.getMessage(), exc);
+            LOGGER.error("IO error while getting object from bucket '{}': {}", bucketName, exc.getMessage(), exc);
             return Optional.empty();
         } catch(S3Exception e) {
-            logger.error("S3 error while getting object from bucket '{}': {}", bucketName, e.awsErrorDetails().errorMessage(), e);
+            LOGGER.error("S3 error while getting object from bucket '{}': {}", bucketName, e.awsErrorDetails().errorMessage(), e);
             return Optional.empty();
         } catch (Exception e) {
-            logger.error("Error downloading object from S3 bucket '{}': {}", bucketName, e.getMessage(), e);
+            LOGGER.error("Error downloading object from S3 bucket '{}': {}", bucketName, e.getMessage(), e);
             return Optional.empty();
         } finally {
             s3TransferManager.close();
@@ -230,7 +229,7 @@ public class S3Service {
                 .build();
 
         ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
-        logger.info("Listed objects in bucket '{}'", bucketName);
+        LOGGER.info("Listed objects in bucket '{}'", bucketName);
 
         return response.contents().stream()
                 .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
@@ -273,8 +272,8 @@ public class S3Service {
         PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
 
         String signedUrl = presignedPutObjectRequest.url().toString();
-        logger.info("Presigned URL to upload a file to: [{}]", signedUrl);
-        logger.info("HTTP method: [{}]", presignedPutObjectRequest.httpRequest().method());
+        LOGGER.info("Presigned URL to upload a file to: [{}]", signedUrl);
+        LOGGER.info("HTTP method: [{}]", presignedPutObjectRequest.httpRequest().method());
 
         return presignedPutObjectRequest.url().toExternalForm();
     }
@@ -288,9 +287,9 @@ public class S3Service {
                     .build();
 
             s3Client.deleteObject(deleteObjectRequest);
-            logger.info("Successfully deleted object [{}] from bucket [{}]", key, bucketName);
+            LOGGER.info("Successfully deleted object [{}] from bucket [{}]", key, bucketName);
         } catch (S3Exception e) {
-            logger.error("Failed to delete object [{}] from bucket [{}]: {}",
+            LOGGER.error("Failed to delete object [{}] from bucket [{}]: {}",
                     key, bucketName, e.awsErrorDetails().errorMessage());
         }
     }

@@ -1,6 +1,7 @@
 package com.audiosource.backend.service;
 
 import com.audiosource.backend.dto.S3ObjectDto;
+import com.audiosource.backend.exception.S3UploadException;
 import com.audiosource.backend.util.S3Utils;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
@@ -75,7 +76,7 @@ public class S3Service {
      * @param bucketName    The name of the S3 bucket.
      * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
      */
-    public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) {
+    public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) throws S3UploadException {
 
         Path sourceDirectory = Paths.get(directoryPath);
 
@@ -92,11 +93,14 @@ public class S3Service {
             return createPresignedGetRequest(bucketName, zipS3File);
 
         } catch (IOException e) {
-            LOGGER.error("An error occurred while preparing the directory for upload: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to prepare directory for upload", e);
+            LOGGER.error("I/O error during upload process: {}", e.getMessage(), e);
+            throw new S3UploadException("Failed to prepare directory for upload", e);
+        } catch (IllegalArgumentException e) {
+            LOGGER.error("Invalid argument: {}", e.getMessage(), e);
+            throw e;
         } catch (Exception e) {
-            LOGGER.error("An error occurred during the upload process: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to upload directory as zip to S3", e);
+            LOGGER.error("Unexpected error during upload: {}", e.getMessage(), e);
+            throw new S3UploadException("Failed to upload directory as zip to S3", e);
         }
     }
 
@@ -124,23 +128,29 @@ public class S3Service {
      * @param bucketName The name of the S3 bucket.
      * @throws Exception If an error occurs during the upload process.
      */
-    public void uploadFileFromLocalToS3(Path zipS3File, String bucketName) throws Exception {
+    public void uploadFileFromLocalToS3(Path zipS3File, String bucketName) throws S3UploadException {
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(SUB_BUCKET + zipS3File.getFileName().toString())
+                    .build();
 
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(SUB_BUCKET + zipS3File.getFileName().toString())
-                .build();
+            UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
+                    .putObjectRequest(putObjectRequest)
+                    .source(zipS3File)
+                    .build();
 
-        UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
-                .putObjectRequest(putObjectRequest)
-                .source(zipS3File)
-                .build();
+            FileUpload fileUpload = s3TransferManager.uploadFile(uploadFileRequest);
+            CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
+            future.join(); // Wait until the upload is complete
 
-        FileUpload fileUpload = s3TransferManager.uploadFile(uploadFileRequest);
-        CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
-        future.join(); // Wait until the upload is complete
-
-        LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+            LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+        } catch (Exception e) {
+            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, e.getMessage(), e);
+            throw new S3UploadException("Failed to upload file to S3", e);
+        } finally {
+            s3TransferManager.close();
+        }
     }
 
     /**

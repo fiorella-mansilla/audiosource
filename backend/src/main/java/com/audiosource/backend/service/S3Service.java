@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -45,6 +46,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -77,7 +79,6 @@ public class S3Service {
      * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
      */
     public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) throws S3UploadException {
-
         Path sourceDirectory = Paths.get(directoryPath);
 
         try {
@@ -88,18 +89,26 @@ public class S3Service {
             }
 
             Path zipS3File = prepareDirectoryForUpload(immediateChildDirectory);
+
             uploadFileFromLocalToS3(zipS3File, bucketName);
 
             return createPresignedGetRequest(bucketName, zipS3File);
 
-        } catch (IOException e) {
-            LOGGER.error("I/O error during upload process: {}", e.getMessage(), e);
-            throw new S3UploadException("Failed to prepare directory for upload", e);
+        } catch (IOException | CompletionException e) {
+            Throwable cause = (e instanceof CompletionException) ? e.getCause() : e;
+            LOGGER.error("Error during upload process for directory '{}': {}", directoryPath, cause.getMessage(), cause);
+            throw new S3UploadException("Failed to upload directory as zip to S3", cause);
+
         } catch (IllegalArgumentException e) {
-            LOGGER.error("Invalid argument: {}", e.getMessage(), e);
+            LOGGER.warn("Invalid argument for directory '{}': {}", directoryPath, e.getMessage(), e);
             throw e;
+
+        } catch (S3UploadException e) {
+            LOGGER.error("Error during S3 upload for directory '{}': {}", directoryPath, e.getMessage(), e);
+            throw e;
+
         } catch (Exception e) {
-            LOGGER.error("Unexpected error during upload: {}", e.getMessage(), e);
+            LOGGER.error("Unexpected error during upload of directory '{}': {}", directoryPath, e.getMessage(), e);
             throw new S3UploadException("Failed to upload directory as zip to S3", e);
         }
     }
@@ -145,6 +154,11 @@ public class S3Service {
             future.join(); // Wait until the upload is complete
 
             LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
+        } catch (CompletionException e) {
+            // Unwrap and handle the actual cause
+            Throwable cause = e.getCause();
+            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, cause.getMessage(), cause);
+            throw new S3UploadException("Failed to upload file to S3", cause);
         } catch (Exception e) {
             LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, e.getMessage(), e);
             throw new S3UploadException("Failed to upload file to S3", e);
@@ -161,13 +175,29 @@ public class S3Service {
      * @return A pre-signed URL for downloading the object, valid for a limited duration.
      */
     public String createPresignedGetRequest(String bucketName, Path zipS3File) {
-        GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(60))
-                .getObjectRequest(req -> req.bucket(bucketName).key(SUB_BUCKET + zipS3File.getFileName().toString()))
-                .build();
 
-        PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
-        return presignedGetObjectRequest.url().toString();
+        try {
+            GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(60))
+                    .getObjectRequest(req -> req.bucket(bucketName).key(SUB_BUCKET + zipS3File.getFileName().toString()))
+                    .build();
+
+            PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
+            return presignedGetObjectRequest.url().toString();
+
+        } catch (S3Exception e) {
+            LOGGER.error("S3 exception occurred: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to generate presigned URL due to S3 error.", e);
+
+        } catch (SdkException e) {
+            // Handle general AWS SDK exceptions
+            LOGGER.error("SDK exception occurred: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to generate presigned URL due to SDK error.", e);
+
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error occurred: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to generate presigned URL due to an unexpected error.", e);
+        }
     }
 
     /* Download a file from the specified S3 bucket and keyName to the Local file system. */

@@ -17,53 +17,47 @@ import static software.amazon.awssdk.transfer.s3.SizeConstant.MB;
 @Configuration
 public class AwsConfig {
 
+    private final Dotenv dotenv;
+
     @Autowired
-    private Dotenv dotenv;
+    public AwsConfig(Dotenv dotenv) {
+        this.dotenv = dotenv;
+    }
+
+    private AwsBasicCredentials awsCredentials() {
+        String awsAccessKeyId = dotenv.get("AWS_ACCESS_KEY_ID");
+        String awsSecretKey = dotenv.get("AWS_SECRET_KEY");
+        return AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
+    }
+
+    private Region awsRegion() {
+        String awsRegion = dotenv.get("AWS_REGION");
+        return Region.of(awsRegion);
+    }
 
     /* Create an S3-Presigner for the put Object and the pre-signed URL request. */
     @Bean
     public S3Presigner s3Presigner() {
-
-        String awsAccessKeyId = dotenv.get("AWS_ACCESS_KEY_ID");
-        String awsSecretKey = dotenv.get("AWS_SECRET_KEY");
-        String awsRegion = dotenv.get("AWS_REGION");
-
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
-
         return S3Presigner.builder()
-                .region(Region.of(awsRegion))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .region(awsRegion())
+                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials()))
                 .build();
     }
 
     /* S3 Client that handles authentication and authorization for the Get Requests. */
     @Bean
     public S3Client s3Client() {
-
-        String awsAccessKeyId = dotenv.get("AWS_ACCESS_KEY_ID");
-        String awsSecretKey = dotenv.get("AWS_SECRET_KEY");
-        String awsRegion = dotenv.get("AWS_REGION");
-
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
-
         return S3Client.builder()
-                .region(Region.of(awsRegion))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .region(awsRegion())
+                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials()))
                 .build();
     }
 
     @Bean
     public S3AsyncClient s3AsyncClient() {
-
-        String awsAccessKeyId = dotenv.get("AWS_ACCESS_KEY_ID");
-        String awsSecretKey = dotenv.get("AWS_SECRET_KEY");
-        String awsRegion = dotenv.get("AWS_REGION");
-
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(awsAccessKeyId, awsSecretKey);
-
         return S3AsyncClient.crtBuilder()
-                .region(Region.of(awsRegion))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .region(awsRegion())
+                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials()))
                 .targetThroughputInGbps(20.0)
                 .minimumPartSizeInBytes(8 * MB)
                 .build();

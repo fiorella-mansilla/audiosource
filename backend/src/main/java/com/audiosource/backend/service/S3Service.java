@@ -293,29 +293,52 @@ public class S3Service {
     }
 
     /* Creates a pre-signed URL to use in a subsequent PUT request of a File to an S3 bucket. */
-    public String createPresignedPutRequest(String key, String contentType){
+    public String createPresignedPutRequest(String key, String contentType) {
 
-        // Create a PutObjectRequest to be pre-signed
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(dotenv.get("S3_BUCKET"))
-                .key(key)
-                .contentType(contentType)
-                .build();
+        try {
+            String bucketName = dotenv.get("S3_BUCKET");
 
-        // Create a PutObjectPresignRequest to specify the signature duration
-        PutObjectPresignRequest putObjectPresignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(10)) // The URL expires in 10 minutes.
-                .putObjectRequest(putObjectRequest)
-                .build();
+            if (bucketName == null || bucketName.isEmpty()) {
+                String errorMessage = "S3 bucket name is not set in the environment variables.";
+                LOGGER.error(errorMessage);
+                throw new IllegalStateException(errorMessage); // Ensure the method fails visibly
+            }
 
-        // Generate the Pre-signed request with the S3-Presigner
-        PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
+            // Create a PutObjectRequest to be pre-signed
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .contentType(contentType)
+                    .build();
 
-        String signedUrl = presignedPutObjectRequest.url().toString();
-        LOGGER.info("Presigned URL to upload a file to: [{}]", signedUrl);
-        LOGGER.info("HTTP method: [{}]", presignedPutObjectRequest.httpRequest().method());
+            // Create a PutObjectPresignRequest to specify the signature duration
+            PutObjectPresignRequest putObjectPresignRequest = PutObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(10)) // The URL expires in 10 minutes.
+                    .putObjectRequest(putObjectRequest)
+                    .build();
 
-        return presignedPutObjectRequest.url().toExternalForm();
+            // Generate the Pre-signed request with the S3-Presigner
+            PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(putObjectPresignRequest);
+
+            String signedUrl = presignedPutObjectRequest.url().toString();
+
+            LOGGER.info("Presigned URL to upload a file to: [{}]", signedUrl);
+            LOGGER.info("HTTP method: [{}]", presignedPutObjectRequest.httpRequest().method());
+
+            return presignedPutObjectRequest.url().toExternalForm();
+
+        } catch (S3Exception e) {
+            LOGGER.error("S3 error while generating presigned PUT URL for key [{}]: {}", key, e.awsErrorDetails().errorMessage(), e);
+            throw new RuntimeException("Failed to generate presigned PUT URL", e);
+
+        } catch (SdkException e) {
+            LOGGER.error("SDK error while generating presigned PUT URL for key [{}]: {}", key, e.getMessage(), e);
+            throw new RuntimeException("Failed to generate presigned PUT URL", e);
+
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error while generating presigned PUT URL for key [{}]: {}", key, e.getMessage(), e);
+            throw new RuntimeException("Failed to generate presigned PUT URL", e);
+        }
     }
 
     /* Delete a specific object (file/directory) from the S3 bucket */

@@ -43,6 +43,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -262,19 +263,27 @@ public class S3Service {
 
     /* List all files from the specified AWS S3 bucket, excluding empty directories. */
     public List<S3ObjectDto> listObjects(String bucketName) {
+        try {
+            ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
+                    .builder()
+                    .bucket(bucketName)
+                    .build();
 
-        ListObjectsV2Request listObjectsRequest = ListObjectsV2Request
-                .builder()
-                .bucket(bucketName)
-                .build();
+            ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
+            LOGGER.info("Listed objects in bucket '{}'", bucketName);
 
-        ListObjectsV2Response response = s3Client.listObjectsV2(listObjectsRequest);
-        LOGGER.info("Listed objects in bucket '{}'", bucketName);
+            return response.contents().stream()
+                    .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
+                    .map(this::toDto)
+                    .collect(Collectors.toList());
 
-        return response.contents().stream()
-                .filter(s3Object -> !s3Object.key().endsWith("/") || s3Object.size() != 0)
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        } catch (S3Exception e) {
+            LOGGER.error("S3 error while listing objects in bucket '{}': {}", bucketName, e.awsErrorDetails().errorMessage(), e);
+            return Collections.emptyList();
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error while listing objects in bucket '{}': {}", bucketName, e.getMessage(), e);
+            return Collections.emptyList();
+        }
     }
 
     /* Convert an S3Object to an S3ObjectDto, formatting the size to MB with one decimal place

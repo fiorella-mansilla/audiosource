@@ -769,6 +769,49 @@ public class S3ServiceTest {
     }
 
     @Test
+    void createPresignedPutRequest_MissingBucket_ShouldThrowException() {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(null); // Simulate missing bucket name
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3Service.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof IllegalStateException);
+        assertEquals("S3 bucket name is not set in the environment variables.", thrown.getCause().getMessage());
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
+    void createPresignedPutRequest_S3Exception_ShouldThrowRuntimeException() {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
+
+        String expectedErrorMessage = "S3 exception occurred";
+
+        S3Exception s3Exception = mock(S3Exception.class);
+        AwsErrorDetails errorDetails = mock(AwsErrorDetails.class);
+        when(s3Exception.awsErrorDetails()).thenReturn(errorDetails);
+        when(errorDetails.errorMessage()).thenReturn(expectedErrorMessage);
+
+        // Simulate S3Exception being thrown by the presigner
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
+                .thenThrow(s3Exception);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3Service.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof S3Exception);
+        assertEquals(expectedErrorMessage, thrown.getCause().getMessage());
+
+        verify(s3Presigner).presignPutObject(any(PutObjectPresignRequest.class));
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
     void listObjects_ValidBucket_ShouldReturnListOfS3ObjectDto() {
 
         S3Object s3Object = S3TestUtils.createTestS3Object(123L, Instant.now());

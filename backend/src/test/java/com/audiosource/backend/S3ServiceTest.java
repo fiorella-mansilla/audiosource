@@ -53,6 +53,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +81,12 @@ public class S3ServiceTest {
     @Mock
     private S3TransferManager s3TransferManager;
 
+    @Mock
+    private AwsErrorDetails awsErrorDetails;
+
+    @Mock
+    private S3Exception s3Exception;
+
     @InjectMocks
     private S3Service s3Service;
 
@@ -87,7 +94,7 @@ public class S3ServiceTest {
     private Dotenv dotenv;
 
     private final String bucketName = "test-bucket";
-    private final String keyName = "test-key";
+    private final String keyName = "test-file.mp3";
     private final String contentType = "audio/mp3";
     private final String expectedPresignedUrl = "https://test-bucket.s3.amazonaws.com/test-key";
     private static final String SUB_BUCKET = "separated/";
@@ -497,8 +504,8 @@ public class S3ServiceTest {
     void createPresignedGetRequest_S3Exception_ShouldHandleException() {
 
         Path zipS3File = Paths.get("test-zip-file.zip");
-        String expectedErrorMessage = "S3 exception occurred";
 
+        String expectedErrorMessage = "S3 exception occurred";
         S3Exception s3Exception = (S3Exception) S3Exception.builder().message(expectedErrorMessage).build();
 
         when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
@@ -677,12 +684,7 @@ public class S3ServiceTest {
         String directoryPath = tempDirectory.toString();
         long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
 
-        // Create a mock AwsErrorDetails
-        AwsErrorDetails awsErrorDetails = mock(AwsErrorDetails.class);
         when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
-
-        // Create a mock S3Exception
-        S3Exception s3Exception = mock(S3Exception.class);
         when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
 
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(s3Exception);
@@ -769,6 +771,44 @@ public class S3ServiceTest {
     }
 
     @Test
+    void createPresignedPutRequest_MissingBucket_ShouldThrowException() {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(null); // Simulate missing bucket name
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3Service.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof IllegalStateException);
+        assertEquals("S3 bucket name is not set in the environment variables.", thrown.getCause().getMessage());
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
+    void createPresignedPutRequest_S3Exception_ShouldThrowRuntimeException() {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
+
+        when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
+        when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
+
+        // Simulate S3Exception being thrown by the presigner
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
+                .thenThrow(s3Exception);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3Service.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof S3Exception);
+
+        verify(s3Presigner).presignPutObject(any(PutObjectPresignRequest.class));
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
     void listObjects_ValidBucket_ShouldReturnListOfS3ObjectDto() {
 
         S3Object s3Object = S3TestUtils.createTestS3Object(123L, Instant.now());
@@ -783,8 +823,40 @@ public class S3ServiceTest {
         String expectedSizeMB = S3TestUtils.formatSize(s3Object.size());
 
         assertEquals(1, result.size());
-        assertEquals("test-file.mp3", result.get(0).getKey());
+        assertEquals(keyName, result.get(0).getKey());
         assertEquals(expectedSizeMB, result.get(0).getSizeMB());
+    }
+
+    @Test
+    void listObjects_EmptyBucket_ShouldReturnEmptyList() {
+
+        ListObjectsV2Response emptyResponse = ListObjectsV2Response.builder()
+                .contents(Collections.emptyList()) // Simulating empty bucket
+                .build();
+
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenReturn(emptyResponse);
+
+        List<S3ObjectDto> result = s3Service.listObjects(bucketName);
+
+        assertTrue(result.isEmpty(), "Expected an empty list when the bucket is empty");
+        verify(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
+    }
+
+    @Test
+    void listObjects_S3ExceptionDuringListing_ShouldHandleException() {
+
+        when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
+        when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
+
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenThrow(s3Exception);
+
+        List<S3ObjectDto> result = s3Service.listObjects(bucketName);
+
+        assertTrue(result.isEmpty(), "Expected an empty list when an S3 exception is thrown");
+
+        verify(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
     }
 
     @Test
@@ -805,8 +877,74 @@ public class S3ServiceTest {
 
         S3ObjectDto resultDto = s3Service.toDto(s3Object);
 
-        assertEquals("test-file.mp3", resultDto.getKey());
+        assertEquals(keyName, resultDto.getKey());
         assertEquals(expectedSizeMB, resultDto.getSizeMB());
         assertEquals(expectedLastModified, resultDto.getLastModified());
     }
+
+    @Test
+    void toDto_SmallFileSize_ShouldFormatSizeAndDateCorrectly() {
+
+        long smallSizeInBytes = 1L; // Small size in bytes
+        Instant lastModified = Instant.parse("2024-01-01T00:00:00Z");
+
+        S3Object s3Object = S3TestUtils.createTestS3Object(smallSizeInBytes, lastModified);
+        String expectedSizeMB = S3TestUtils.formatSize(smallSizeInBytes);
+        String expectedLastModified = S3TestUtils.formatLastModified(lastModified);
+
+        mockedS3Utils = mockStatic(S3Utils.class);
+
+        mockedS3Utils.when(() -> S3Utils.formatLastModified(lastModified))
+                .thenReturn(expectedLastModified);
+
+        S3ObjectDto resultDto = s3Service.toDto(s3Object);
+
+        assertEquals(keyName, resultDto.getKey());
+        assertEquals(expectedSizeMB, resultDto.getSizeMB());
+        assertEquals(expectedLastModified, resultDto.getLastModified());
+    }
+
+    @Test
+    void toDto_LargeFileSize_ShouldFormatSizeAndDateCorrectly() {
+
+        long largeSizeInBytes = 123456789L; // Large size in bytes
+        Instant lastModified = Instant.parse("2024-12-31T23:59:59Z");
+
+        S3Object s3Object = S3TestUtils.createTestS3Object(largeSizeInBytes, lastModified);
+        String expectedSizeMB = S3TestUtils.formatSize(largeSizeInBytes);
+        String expectedLastModified = S3TestUtils.formatLastModified(lastModified);
+
+        mockedS3Utils = mockStatic(S3Utils.class);
+
+        mockedS3Utils.when(() -> S3Utils.formatLastModified(lastModified))
+                .thenReturn(expectedLastModified);
+
+        S3ObjectDto resultDto = s3Service.toDto(s3Object);
+
+        assertEquals(keyName, resultDto.getKey());
+        assertEquals(expectedSizeMB, resultDto.getSizeMB());
+        assertEquals(expectedLastModified, resultDto.getLastModified());
+    }
+
+    @Test
+    void toDto_BoundaryDate_ShouldFormatSizeAndDateCorrectly() {
+
+        long sizeInBytes = 123456L;
+        Instant boundaryDate = Instant.parse("2024-06-30T12:00:00Z");
+
+        S3Object s3Object = S3TestUtils.createTestS3Object(sizeInBytes, boundaryDate);
+        String expectedLastModified = S3TestUtils.formatLastModified(boundaryDate);
+
+        mockedS3Utils = mockStatic(S3Utils.class);
+
+        mockedS3Utils.when(() -> S3Utils.formatLastModified(boundaryDate))
+                .thenReturn(expectedLastModified);
+
+        S3ObjectDto resultDto = s3Service.toDto(s3Object);
+
+        assertEquals(keyName, resultDto.getKey());
+        assertEquals(S3TestUtils.formatSize(sizeInBytes), resultDto.getSizeMB());
+        assertEquals(expectedLastModified, resultDto.getLastModified());
+    }
+
 }

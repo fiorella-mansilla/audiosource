@@ -32,5 +32,17 @@ build/
 ### VS Code ###
 .vscode/
 
+# .env file
 .env
-../.idea/
+
+# Exclude all files in .idea directory except the ones listed below
+.idea/*
+!.idea/codeStyles
+!.idea/runConfigurations
+!.idea/vcs.xml
+
+# Ignore specific files
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/libraries

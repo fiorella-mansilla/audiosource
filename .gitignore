@@ -28,3 +28,17 @@ config/index.js
 .module-cache
 
 scripts/flow/*/.flowconfig
+
+# Ignore all files in the .idea directory except the ones listed below
+.idea/*
+!.idea/codeStyles
+!.idea/runConfigurations
+!.idea/vcs.xml
+
+# Ignore specific files
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/libraries
+.idea/misc.xml
+

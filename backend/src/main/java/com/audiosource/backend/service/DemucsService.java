@@ -1,5 +1,8 @@
 package com.audiosource.backend.service;
 
+import com.audiosource.backend.exception.DemucsProcessingException;
+import com.audiosource.backend.util.S3Utils;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,28 +15,28 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Service
 public class DemucsService {
 
+    private Queue<File> audioFilesQueue = new ConcurrentLinkedQueue<>();
+
     private static final Logger logger = LoggerFactory.getLogger(DemucsService.class);
 
-    private final String inputDirectory = "/Users/fiorellamansilla/demucs/originals/";
-    private final String outputDirectory = "/Users/fiorellamansilla/demucs/";
-    private Queue<File> audioFilesQueue = new ConcurrentLinkedQueue<>();
+    private final Dotenv dotenv;
 
     /**
      * Constructor that initializes the service and populates the audioFilesQueue with files from the input directory.
      */
-    public DemucsService() {
+    public DemucsService(Dotenv dotenv) {
+        this.dotenv = dotenv;
         scanDirectoryAndInitializeQueue();
     }
 
     /**
      * Processes the specified audio file using Demucs for music source separation.
      *
-     * @param audioFilePath Absolute path of the audio file to process.
-     * @throws IOException          If an I/O error occurs during processing.
-     * @throws InterruptedException If the thread is interrupted while waiting for Demucs process completion.
+     * @param audioFilePath The absolute path of the audio file to process.
+     * @throws DemucsProcessingException If an I/O error occurs, if the thread is interrupted, or
+     *                                   if the file format is unsupported.
      */
-    public void processNextAudioFile(String audioFilePath) throws IOException, InterruptedException {
-
+    public void processNextAudioFile(String audioFilePath) throws DemucsProcessingException {
         try {
             File audioFile = new File(audioFilePath);
 
@@ -45,13 +48,13 @@ public class DemucsService {
             String pythonEnvPath;
 
             // Determine Python environment path based on file extension
-            if (audioFilePath.endsWith(".mp3") || audioFilePath.endsWith(".wav")) {
-                pythonEnvPath = "/Users/fiorellamansilla/miniconda3/envs/demucs-env/bin/python3";
+            if (S3Utils.isSupportedFormat(audioFilePath)) {
+                pythonEnvPath = dotenv.get("PYTHON_ENV_PATH");
                 String[] commandArgs = { pythonEnvPath, "-m", "demucs", "-d", "cpu", audioFilePath };
 
                 // Execute Demucs command via ProcessBuilder
                 ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
-                processBuilder.directory(new File(outputDirectory));
+                processBuilder.directory(new File(dotenv.get("DEMUCS_OUTPUT_DIRECTORY")));
                 processBuilder.inheritIO();
 
                 Process process = processBuilder.start();
@@ -65,17 +68,22 @@ public class DemucsService {
             } else {
                 throw new IllegalArgumentException("Unsupported file format.");
             }
-        } catch (IOException | InterruptedException | IllegalArgumentException e) {
-            // Log error if processing fails and propagate the exception
-            logger.error("Error processing file {}: {}", audioFilePath, e.getMessage(), e);
-            throw e;
+        } catch (IOException | InterruptedException e) {
+            throw new DemucsProcessingException("Error processing file " + audioFilePath, e);
         }
     }
 
     /**
      * Scans the input directory for audio files and initializes the audioFilesQueue with them.
+     *
+     * This method searches the specified input directory for audio files in the .mp3 or .wav formats.
+     * It adds all found files to the processing queue. Logs are generated to indicate the results of
+     * the scan, such as the number of files added to the queue and any potential issues.
      */
     private void scanDirectoryAndInitializeQueue() {
+
+        String inputDirectory = dotenv.get("DEMUCS_INPUT_DIRECTORY");
+
         File dir = new File(inputDirectory);
         if (dir.isDirectory() && dir.canRead()) {
             File[] files = dir.listFiles((d, name) -> name.endsWith(".mp3") || name.endsWith(".wav"));
@@ -93,9 +101,11 @@ public class DemucsService {
     }
 
     /**
-     * Retrieves the path of the next audio file from the queue.
+     * Fetches and removes the next audio file from the queue of files to be processed.
+     * If the queue is empty, it returns an empty Optional.
      *
-     * @return Optional containing the absolute path of the next audio file, or empty if queue is empty.
+     * @return Optional containing the absolute path of the next audio file, or an empty Optional if
+     *         the queue is empty.
      */
     public Optional<String> retrieveNextAudioFilePath() {
         File nextFile = audioFilesQueue.poll(); // Retrieves and removes the next file from the Queue

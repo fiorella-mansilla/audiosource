@@ -1,5 +1,6 @@
 package com.audiosource.backend.controller;
 
+import com.audiosource.backend.exception.DemucsProcessingException;
 import com.audiosource.backend.service.DemucsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +55,14 @@ public class DemucsController {
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .body("File processed but failed to delete.");
                 }
-            } catch (IOException | InterruptedException exc) {
-                logger.error("Failed to process file: {}", audioFilePath, exc);
+            } catch (DemucsProcessingException e) {
+                logger.error("Demucs processing error for file {}: {}", audioFilePath, e.getMessage(), e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Failed to process the file. Please try again later.");
+                        .body("Failed to process the file : " + e.getMessage());
+            } catch (Exception e) {
+                logger.error("Unexpected error processing file {}: {}", audioFilePath, e.getMessage(), e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("An unexpected error occurred while processing the file : " + e.getMessage());
             }
         } else {
             logger.info("No files to process.");

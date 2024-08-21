@@ -1,4 +1,4 @@
-package com.audiosource.backend.service;
+package com.audiosource.backend.service.demucs;
 
 import com.audiosource.backend.exception.DemucsProcessingException;
 import com.audiosource.backend.util.S3Utils;

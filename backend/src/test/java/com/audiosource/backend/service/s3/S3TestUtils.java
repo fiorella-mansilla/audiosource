@@ -1,4 +1,4 @@
-package com.audiosource.backend;
+package com.audiosource.backend.service.s3;
 
 import com.audiosource.backend.util.S3Utils;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;

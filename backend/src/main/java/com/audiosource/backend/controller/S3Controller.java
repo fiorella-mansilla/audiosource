@@ -1,7 +1,10 @@
 package com.audiosource.backend.controller;
 
 import com.audiosource.backend.dto.S3ObjectDto;
-import com.audiosource.backend.service.S3Service;
+import com.audiosource.backend.service.s3.S3DownloadService;
+import com.audiosource.backend.service.s3.S3ObjectService;
+import com.audiosource.backend.service.s3.S3PresignedUrlService;
+import com.audiosource.backend.service.s3.S3UploadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,12 +27,19 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/s3")
 public class S3Controller {
-    private final S3Service s3Service;
+    private final S3UploadService s3UploadService;
+    private final S3ObjectService s3ObjectService;
+    private final S3DownloadService s3DownloadService;
+    private final S3PresignedUrlService s3PresignedUrlService;
     private static final Logger logger = LoggerFactory.getLogger(S3Controller.class);
 
     @Autowired
-    public S3Controller(S3Service s3Service) {
-        this.s3Service = s3Service;
+    public S3Controller(S3UploadService s3UploadService, S3ObjectService s3ObjectService,
+                        S3DownloadService s3DownloadService, S3PresignedUrlService s3PresignedUrlService) {
+        this.s3UploadService = s3UploadService;
+        this.s3ObjectService = s3ObjectService;
+        this.s3DownloadService = s3DownloadService;
+        this.s3PresignedUrlService = s3PresignedUrlService;
     }
 
     /**
@@ -47,7 +57,7 @@ public class S3Controller {
 
         try {
             // Upload directory as a ZIP file to S3 and retrieve the pre-signed URL
-            String presignedGetUrl = s3Service.uploadDirectoryAsZipToS3(directoryPath, bucketName);
+            String presignedGetUrl = s3UploadService.uploadDirectoryAsZipToS3(directoryPath, bucketName);
 
             if (presignedGetUrl == null) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -76,7 +86,7 @@ public class S3Controller {
     public ResponseEntity<String> downloadLatestFile(@RequestParam String bucketName,
                                                      @RequestParam String directoryPath) {
         try {
-            List<S3ObjectDto> files = s3Service.listObjects(bucketName);
+            List<S3ObjectDto> files = s3ObjectService.listObjects(bucketName);
 
             // List files that are stored inside 'originals/' from the S3 bucket
             List<S3ObjectDto> originalFiles = files.stream()
@@ -94,7 +104,7 @@ public class S3Controller {
                 double sizeInMB = Double.parseDouble(latestFile.getSizeMB().replace(" MB", ""));
                 long fileSizeInBytes = (long) (sizeInMB * 1024 * 1024);
 
-                Optional<String> filePath = s3Service.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath, fileSizeInBytes);
+                Optional<String> filePath = s3DownloadService.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath, fileSizeInBytes);
 
                 if (filePath.isPresent()) {
                     return ResponseEntity.ok("Successful download of the latest file from the S3 bucket: "
@@ -122,7 +132,7 @@ public class S3Controller {
     @GetMapping("/listObjects")
     public ResponseEntity<List<S3ObjectDto>> listObjects(@RequestParam String bucketName) {
         try {
-            List<S3ObjectDto> objects = s3Service.listObjects(bucketName);
+            List<S3ObjectDto> objects = s3ObjectService.listObjects(bucketName);
             return ResponseEntity.ok(objects);
         } catch (Exception e) {
             logger.error("Error listing objects from the S3 bucket: {}", e.getMessage(), e);
@@ -145,7 +155,7 @@ public class S3Controller {
             // All the put objects will be located in the `originals` S3 sub-bucket
             String key = request.get("key");
             String contentType = request.get("content_type");
-            String data = s3Service.createPresignedPutRequest(key, contentType);
+            String data = s3PresignedUrlService.createPresignedPutRequest(key, contentType);
             return ResponseEntity.ok().body(data);
         } catch (Exception e) {
             logger.error("Error generating the pre-signed URL: {}", e.getMessage(), e);

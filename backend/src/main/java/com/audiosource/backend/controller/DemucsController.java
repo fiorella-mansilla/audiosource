@@ -1,7 +1,7 @@
 package com.audiosource.backend.controller;
 
 import com.audiosource.backend.exception.DemucsProcessingException;
-import com.audiosource.backend.service.DemucsService;
+import com.audiosource.backend.service.demucs.DemucsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Optional;
 
 @RestController

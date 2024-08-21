@@ -1,6 +1,5 @@
 package com.audiosource.backend.util;
 
-import com.audiosource.backend.service.S3Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,8 +21,8 @@ public class S3Utils {
     public static DateTimeFormatter DATE_FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
-    public static Logger logger = LoggerFactory.getLogger(S3Service.class);
 
+    private static final Logger logger = LoggerFactory.getLogger(S3Utils.class);
     private static final Set<String> SUPPORTED_FORMATS = Set.of(".mp3", ".wav");
 
     // Zip Utilities

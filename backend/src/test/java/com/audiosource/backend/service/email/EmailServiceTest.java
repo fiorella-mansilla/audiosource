@@ -1,4 +1,4 @@
-package com.audiosource.backend;
+package com.audiosource.backend.service.email;
 
 import com.audiosource.backend.service.email.EmailService;
 import org.junit.jupiter.api.Test;

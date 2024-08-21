@@ -1,6 +1,6 @@
 package com.audiosource.backend;
 
-import com.audiosource.backend.service.EmailService;
+import com.audiosource.backend.service.email.EmailService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;

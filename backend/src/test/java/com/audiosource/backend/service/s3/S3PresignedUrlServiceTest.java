@@ -1,8 +1,8 @@
-package com.audiosource.backend;
+package com.audiosource.backend.service.s3;
 
 import com.audiosource.backend.dto.S3ObjectDto;
 import com.audiosource.backend.exception.S3UploadException;
-import com.audiosource.backend.service.S3Service;
+import com.audiosource.backend.service.s3.S3Service;
 import com.audiosource.backend.util.S3Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

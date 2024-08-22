@@ -25,7 +25,9 @@ public class S3Utils {
     private static final Logger logger = LoggerFactory.getLogger(S3Utils.class);
     private static final Set<String> SUPPORTED_FORMATS = Set.of(".mp3", ".wav");
 
+
     // Zip Utilities
+
     public static Path toZipDirectory(Path sourceDirectory) throws IOException {
 
         // Compute the path for the zip file
@@ -51,6 +53,7 @@ public class S3Utils {
     }
 
     // Directory Utilities
+
     /**
      * Helper method to get the immediate child directory from the given directory path.
      * @param directoryPath The path of the parent directory.
@@ -84,6 +87,7 @@ public class S3Utils {
     }
 
     // File Utilities
+
     public static boolean isSupportedFormat(String filePath) {
         return SUPPORTED_FORMATS.stream().anyMatch(filePath::endsWith);
     }

@@ -13,18 +13,18 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Service
-public class DemucsService {
+public class DemucsProcessingService {
 
     private Queue<File> audioFilesQueue = new ConcurrentLinkedQueue<>();
 
-    private static final Logger logger = LoggerFactory.getLogger(DemucsService.class);
+    private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
 
     private final Dotenv dotenv;
 
     /**
      * Constructor that initializes the service and populates the audioFilesQueue with files from the input directory.
      */
-    public DemucsService(Dotenv dotenv) {
+    public DemucsProcessingService(Dotenv dotenv) {
         this.dotenv = dotenv;
         scanDirectoryAndInitializeQueue();
     }

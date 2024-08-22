@@ -13,7 +13,7 @@ const apiClient = axios.create({
  */
 export async function getSignedUrl({ key, content_type }) {
     try {
-      const response = await apiClient.post("/s3/upload/signed_url", {
+      const response = await apiClient.post("/s3/upload/generate-signed-url", {
         key,
         content_type,
       });

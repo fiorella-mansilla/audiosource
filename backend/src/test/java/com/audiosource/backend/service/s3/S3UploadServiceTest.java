@@ -2,6 +2,7 @@ package com.audiosource.backend.service.s3;
 
 import com.audiosource.backend.exception.S3UploadException;
 import com.audiosource.backend.util.S3Utils;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,17 +13,26 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
 import software.amazon.awssdk.transfer.s3.model.FileUpload;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,12 +74,20 @@ public class S3UploadServiceTest {
     private S3TransferManager s3TransferManager;
 
     @Mock
-    private S3PresignedUrlService s3PresignedUrlService;
+    private AwsErrorDetails awsErrorDetails;
+
+    @Mock
+    private S3Exception s3Exception;
+
+    @Mock
+    private Dotenv dotenv;
 
     @InjectMocks
     private S3UploadService s3UploadService;
 
     private final String bucketName = "test-bucket";
+    private final String keyName = "test-file.mp3";
+    private final String contentType = "audio/mp3";
     private final String expectedPresignedUrl = "https://test-bucket.s3.amazonaws.com/test-key";
     private static final String SUB_BUCKET = "separated/";
     private Path tempDirectory;
@@ -168,6 +186,29 @@ public class S3UploadServiceTest {
                         capturedRequest.putObjectRequest().key(), "The key should match the expected S3 key")
         );
     }
+
+    @Test
+    void uploadDirectoryAsZipToS3_NullOrEmptyDirectoryPath_ShouldThrowIllegalArgumentException() {
+        String invalidDirectoryPath = "";
+        String validBucketName = "valid-bucket-name";
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.uploadDirectoryAsZipToS3(invalidDirectoryPath, validBucketName));
+
+        assertEquals("Directory path cannot be null or empty", exception.getMessage());
+    }
+
+    @Test
+    void uploadDirectoryAsZipToS3_NullOrEmptyBucketName_ShouldThrowIllegalArgumentException() {
+        String validDirectoryPath = tempDirectory.resolve("sourceDirectory").toString();
+        String invalidBucketName = "";
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.uploadDirectoryAsZipToS3(validDirectoryPath, invalidBucketName));
+
+        assertEquals("Bucket name cannot be null or empty", exception.getMessage());
+    }
+
 
     @Test
     void uploadDirectoryAsZipToS3_NoImmediateChildDirectory_ShouldThrowIllegalArgumentException() throws IOException {
@@ -390,6 +431,90 @@ public class S3UploadServiceTest {
     }
 
     @Test
+    void createPresignedGetRequest_ValidInput_ShouldReturnPresignedURL() throws MalformedURLException {
+
+        Path zipS3File = Paths.get("test-zip-file.zip");
+
+        // Mock the presigned URL request and response
+        PresignedGetObjectRequest presignedGetObjectRequest = mock(PresignedGetObjectRequest.class);
+        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
+
+        // Custom matcher for GetObjectPresignRequest
+        ArgumentMatcher<GetObjectPresignRequest> requestMatcher = request ->
+                request.signatureDuration().equals(Duration.ofMinutes(60)) &&
+                        request.getObjectRequest().bucket().equals(bucketName) &&
+                        request.getObjectRequest().key().equals(SUB_BUCKET + zipS3File.getFileName().toString());
+
+        // Use the custom matcher in the `when` call
+        when(s3Presigner.presignGetObject(argThat(requestMatcher))).thenReturn(presignedGetObjectRequest);
+
+        String actualUrl = s3UploadService.createPresignedGetRequest(bucketName, zipS3File);
+
+        assertEquals(expectedPresignedUrl, actualUrl);
+        verify(s3Presigner).presignGetObject(argThat(requestMatcher));
+    }
+
+    @Test
+    void createPresignedGetRequest_S3Exception_ShouldHandleException() {
+
+        Path zipS3File = Paths.get("test-zip-file.zip");
+
+        String expectedErrorMessage = "S3 exception occurred";
+        S3Exception s3Exception = (S3Exception) S3Exception.builder().message(expectedErrorMessage).build();
+
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+                .thenThrow(s3Exception);
+
+        RuntimeException thrownException = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedGetRequest(bucketName, zipS3File);
+        });
+
+        assertEquals("Failed to generate presigned URL due to S3 error.", thrownException.getMessage());
+        assertTrue(thrownException.getCause() instanceof S3Exception);
+        assertEquals(expectedErrorMessage, thrownException.getCause().getMessage());
+    }
+
+    @Test
+    void createPresignedGetRequest_SdkException_ShouldHandleException() {
+
+        Path zipS3File = Paths.get("test-zip-file.zip");
+        String expectedErrorMessage = "SDK exception occurred";
+
+        SdkException sdkException = SdkException.builder()
+                .message(expectedErrorMessage)
+                .build();
+
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+                .thenThrow(sdkException);
+
+        RuntimeException thrownException = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedGetRequest(bucketName, zipS3File);
+        });
+
+        assertEquals("Failed to generate presigned URL due to SDK error.", thrownException.getMessage());
+        assertTrue(thrownException.getCause() instanceof SdkException);
+        assertEquals(expectedErrorMessage, thrownException.getCause().getMessage());
+    }
+
+    @Test
+    void createPresignedGetRequest_GeneralException_ShouldHandleException() {
+
+        Path zipS3File = Paths.get("test-zip-file.zip");
+        String expectedErrorMessage = "Unexpected error occurred";
+
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+                .thenThrow(new RuntimeException(expectedErrorMessage));
+
+        RuntimeException thrownException = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedGetRequest(bucketName, zipS3File);
+        });
+
+        assertEquals("Failed to generate presigned URL due to an unexpected error.", thrownException.getMessage());
+        assertTrue(thrownException.getCause() instanceof RuntimeException);
+        assertEquals(expectedErrorMessage, thrownException.getCause().getMessage());
+    }
+
+    @Test
     void uploadFileFromLocalToS3_ValidInput_ShouldUploadSuccessfully() throws Exception {
 
         Path zipS3File = createTestFile("test.zip");
@@ -448,4 +573,136 @@ public class S3UploadServiceTest {
         verify(s3TransferManager, times(1)).close();
         verifyNoMoreInteractions(s3TransferManager);
     }
+
+    @Test
+    void createPresignedPutRequest_ValidInput_ShouldReturnPresignedURL() throws MalformedURLException {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
+
+        // Mock PresignedPutObjectRequest
+        PresignedPutObjectRequest presignedPutObjectRequest = mock(PresignedPutObjectRequest.class);
+        when(presignedPutObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
+
+        // Mock SdkHttpRequest
+        SdkHttpRequest sdkHttpRequest = mock(SdkHttpRequest.class);
+        when(sdkHttpRequest.method()).thenReturn(SdkHttpMethod.valueOf("PUT"));
+
+        when(presignedPutObjectRequest.httpRequest()).thenReturn(sdkHttpRequest);
+
+        // Custom matcher for PutObjectPresignRequest
+        ArgumentMatcher<PutObjectPresignRequest> requestMatcher = request -> {
+            PutObjectRequest putRequest = request.putObjectRequest();
+            return request.signatureDuration().equals(Duration.ofMinutes(10)) &&
+                    putRequest.bucket().equals(bucketName) &&
+                    putRequest.key().equals(keyName) &&
+                    putRequest.contentType().equals(contentType);
+        };
+
+        // Configure the mock to return the PresignedPutObjectRequest
+        when(s3Presigner.presignPutObject(argThat(requestMatcher)))
+                .thenReturn(presignedPutObjectRequest);
+
+        String result = s3UploadService.createPresignedPutRequest(keyName, contentType);
+
+        assertEquals(expectedPresignedUrl, result);
+        verify(s3Presigner).presignPutObject(argThat(requestMatcher));
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
+    void createPresignedPutRequest_MissingBucket_ShouldThrowException() {
+        when(dotenv.get("S3_BUCKET")).thenReturn(null); // Simulate missing bucket name
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof IllegalStateException);
+        assertEquals("S3 bucket name is not set in the environment variables.", thrown.getCause().getMessage());
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
+    void createPresignedPutRequest_NullKey_ShouldThrowIllegalArgumentException() {
+        String nullKey = null;
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.createPresignedPutRequest(nullKey, contentType));
+
+        assertEquals("Key cannot be null or empty", exception.getMessage());
+    }
+
+    @Test
+    void createPresignedPutRequest_EmptyKey_ShouldThrowIllegalArgumentException() {
+        String emptyKey = "";
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.createPresignedPutRequest(emptyKey, contentType));
+
+        assertEquals("Key cannot be null or empty", exception.getMessage());
+    }
+
+    @Test
+    void createPresignedPutRequest_NullContentType_ShouldThrowIllegalArgumentException() {
+        String nullContentType = null;
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.createPresignedPutRequest(keyName, nullContentType));
+
+        assertEquals("Content-Type cannot be null or empty", exception.getMessage());
+    }
+
+    @Test
+    void createPresignedPutRequest_EmptyContentType_ShouldThrowIllegalArgumentException() {
+        String emptyContentType = "";
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                s3UploadService.createPresignedPutRequest(keyName, emptyContentType));
+
+        assertEquals("Content-Type cannot be null or empty", exception.getMessage());
+    }
+
+    @Test
+    void createPresignedPutRequest_S3Exception_ShouldThrowRuntimeException() {
+
+        when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
+
+        when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
+        when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
+
+        // Simulate S3Exception being thrown by the presigner
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
+                .thenThrow(s3Exception);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertTrue(thrown.getCause() instanceof S3Exception);
+
+        verify(s3Presigner).presignPutObject(any(PutObjectPresignRequest.class));
+        verify(dotenv).get("S3_BUCKET");
+    }
+
+    @Test
+    void createPresignedPutRequest_GeneralException_ShouldThrowRuntimeException() {
+        when(dotenv.get("S3_BUCKET")).thenReturn(bucketName);
+
+        // Simulate a general exception being thrown by the presigner
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> {
+            s3UploadService.createPresignedPutRequest(keyName, contentType);
+        });
+
+        assertEquals("Failed to generate presigned PUT URL", thrown.getMessage());
+        assertEquals("Unexpected error", thrown.getCause().getMessage());
+
+        verify(s3Presigner).presignPutObject(any(PutObjectPresignRequest.class));
+        verify(dotenv).get("S3_BUCKET");
+    }
+
 }

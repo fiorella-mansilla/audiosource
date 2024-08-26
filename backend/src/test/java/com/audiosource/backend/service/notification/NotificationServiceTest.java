@@ -1,6 +1,5 @@
-package com.audiosource.backend.service.email;
+package com.audiosource.backend.service.notification;
 
-import com.audiosource.backend.service.email.EmailService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -14,13 +13,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
-public class EmailServiceTest {
+public class NotificationServiceTest {
 
     @Mock
     private JavaMailSender mailSender;
 
     @InjectMocks
-    private EmailService emailService;
+    private NotificationService notificationService;
 
     @Test
     public void testSendSimpleEmail() {
@@ -28,7 +27,7 @@ public class EmailServiceTest {
         String subject = "subject";
         String body = "body";
 
-        emailService.sendSimpleEmail(to, subject, body);
+        notificationService.sendSimpleEmail(to, subject, body);
 
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
     }

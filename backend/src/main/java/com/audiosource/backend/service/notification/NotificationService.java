@@ -1,4 +1,4 @@
-package com.audiosource.backend.service.email;
+package com.audiosource.backend.service.notification;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
@@ -6,7 +6,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
-public class EmailService {
+public class NotificationService {
 
     @Autowired
     private JavaMailSender mailSender;
@@ -16,7 +16,7 @@ public class EmailService {
         message.setTo(to);
         message.setSubject(subject);
         message.setText(body);
-        message.setFrom("your-email@example.com");
+        message.setFrom("your-notification@example.com");
 
         mailSender.send(message);
     }

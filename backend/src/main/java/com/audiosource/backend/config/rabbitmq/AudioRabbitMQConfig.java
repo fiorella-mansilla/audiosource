@@ -2,8 +2,8 @@ package com.audiosource.backend.config.rabbitmq;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.core.TopicExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,8 +19,8 @@ public class AudioRabbitMQConfig {
 
     // Define Exchange
     @Bean
-    public TopicExchange audioExchange() {
-        return new TopicExchange(AUDIO_EXCHANGE_NAME);
+    public DirectExchange audioExchange() {
+        return new DirectExchange(AUDIO_EXCHANGE_NAME);
     }
 
     // Define Queue
@@ -31,7 +31,7 @@ public class AudioRabbitMQConfig {
 
     // Define Binding
     @Bean
-    public Binding audioFilesBinding(Queue audioFilesQueue, TopicExchange audioExchange) {
+    public Binding audioFilesBinding(Queue audioFilesQueue, DirectExchange audioExchange) {
         return BindingBuilder.bind(audioFilesQueue).to(audioExchange).with(AUDIO_ROUTING_KEY);
     }
 }

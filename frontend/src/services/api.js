@@ -40,13 +40,16 @@ export async function getSignedUrl({ key, content_type }) {
         if (file.size <= 100 * 1024 * 1024) { // Small file threshold: 100MB
             
           // Direct upload for small files
-          const response = await axios.put(signedUrl, file, {
+          await axios.put(signedUrl, file, {
               onUploadProgress: onProgress,
               headers: {
                 "Content-Type": contentType,
               },
           });
-          onComplete(response);
+
+          if (typeof onComplete === 'function') {
+            onComplete({ status: 'File uploaded successfully' });
+          }
       } else {
 
         // Multipart upload for large files
@@ -102,7 +105,9 @@ export async function getSignedUrl({ key, content_type }) {
                 },
             }));
 
-            onComplete({ status: 'File uploaded successfully' });
+            if (typeof onComplete === 'function') {
+                onComplete({ status: 'File uploaded successfully' });
+              }
         } catch (err) {
             console.error('Error uploading file: ', err);
 

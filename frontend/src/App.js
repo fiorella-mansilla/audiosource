@@ -6,9 +6,7 @@ import {
   Routes,
 } from "react-router-dom";
 
-//import style
 import "./assets/css/pe-icon-7.css";
-
 import "./assets/scss/themes.scss";
 
 class App extends Component {

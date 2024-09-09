@@ -1,4 +1,4 @@
-package com.audiosource.backend.config.rabbitmq;
+package com.audiosource.backend.messaging.config;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;

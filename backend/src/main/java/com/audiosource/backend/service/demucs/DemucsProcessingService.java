@@ -32,25 +32,25 @@ public class DemucsProcessingService {
     /**
      * Processes the specified audio file using Demucs for music source separation.
      *
-     * @param audioFilePath The absolute path of the audio file to process.
+     * @param originalAudioFilePath The absolute path of the audio file to process.
      * @throws DemucsProcessingException If an I/O error occurs, if the thread is interrupted, or
      *                                   if the file format is unsupported.
      */
-    public void processNextAudioFile(String audioFilePath) throws DemucsProcessingException {
+    public void processNextAudioFile(String originalAudioFilePath) throws DemucsProcessingException {
         try {
-            File audioFile = new File(audioFilePath);
+            File audioFile = new File(originalAudioFilePath);
 
             // Validate if audio file exists
             if(!audioFile.exists()) {
-                throw new IllegalArgumentException("Audio file not found : " + audioFilePath);
+                throw new IllegalArgumentException("Audio file not found : " + originalAudioFilePath);
             }
 
             String pythonEnvPath;
 
             // Determine Python environment path based on file extension
-            if (S3Utils.isSupportedFormat(audioFilePath)) {
+            if (S3Utils.isSupportedFormat(originalAudioFilePath)) {
                 pythonEnvPath = dotenv.get("PYTHON_ENV_PATH");
-                String[] commandArgs = { pythonEnvPath, "-m", "demucs", "-d", "cpu", audioFilePath };
+                String[] commandArgs = { pythonEnvPath, "-m", "demucs", "-d", "cpu", originalAudioFilePath };
 
                 // Execute Demucs command via ProcessBuilder
                 ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
@@ -62,14 +62,14 @@ public class DemucsProcessingService {
 
                 // Check Demucs process exit code
                 if(exitCode != 0) {
-                    throw new IOException("Demucs processing failed:" + audioFilePath);
+                    throw new IOException("Demucs processing failed:" + originalAudioFilePath);
                 }
-                logger.info("Successfully processed audio file {}", audioFilePath);
+                logger.info("Successfully processed audio file {}", originalAudioFilePath);
             } else {
                 throw new IllegalArgumentException("Unsupported file format.");
             }
         } catch (IOException | InterruptedException e) {
-            throw new DemucsProcessingException("Error processing file " + audioFilePath, e);
+            throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
         }
     }
 

@@ -29,7 +29,7 @@ public class AudioFilesConsumerService {
         this.demucsProcessingService = demucsProcessingService;
     }
 
-    /* Consumes messages from the audioFiles queue and initiates the audio processing workflow which:
+    /* Consumes the AudioFileMessage from RabbitMQ (`audioFilesQueue`) and initiates the audio processing workflow which:
      * 1. Downloads the audio file from S3 bucket
      * 2. Processes the audio file using DEMUCS
      * @param message: AudioFileMessage containing all the necessary metadata for
@@ -39,7 +39,7 @@ public class AudioFilesConsumerService {
     public void consumeAudioFileMessage(AudioFileMessage message) {
         LOGGER.info("Received message: {}", message);
 
-        // Retrieve file metadata using correlationId
+        // Retrieves metadata for the audio file using FileMetadataService
         Optional<FileMetadata> fileMetadataOpt = fileMetadataService.findByCorrelationId(message.getCorrelationId());
         if (fileMetadataOpt.isEmpty()) {
             LOGGER.error("No file metadata found for correlationId: {}", message.getCorrelationId());
@@ -47,12 +47,12 @@ public class AudioFilesConsumerService {
         }
 //        FileMetadata fileMetadata = fileMetadataOpt.get();
 
-        // Triggers the download of latest audio file from S3 bucket
+        // Downloads the audio file from S3 bucket using S3DownloadService
         Optional<String> downloadedFilePath = s3DownloadService.getObjectFromBucket(message);
         if (downloadedFilePath.isPresent()) {
             String originalAudioFilePath = downloadedFilePath.get();
 
-            // Triggers the processing of the downloaded file using Demucs
+            // Triggers the processing of the downloaded file using DemucsProcessingService
             try {
                 // TODO: In future, pass message.getSeparationType() and message.getOutputFormat() from message
                 demucsProcessingService.processNextAudioFile(originalAudioFilePath);

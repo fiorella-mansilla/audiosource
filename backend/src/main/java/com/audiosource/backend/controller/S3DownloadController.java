@@ -11,16 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/s3")
 public class S3DownloadController {
-
     private final S3DownloadService s3DownloadService;
     private static final Logger logger = LoggerFactory.getLogger(S3DownloadController.class);
 
@@ -29,7 +24,7 @@ public class S3DownloadController {
         this.s3DownloadService = s3DownloadService;
     }
 
-    //TODO: Retrieve bucketName from .env file
+    //TODO: Retrieve bucketName and originalDirectoryPath from .env file
     /**
      * Downloads the latest file from the specified S3 bucket.
      *
@@ -42,17 +37,17 @@ public class S3DownloadController {
     public ResponseEntity<String> downloadLatestFile(@RequestParam String bucketName,
                                                      @RequestParam String originalDirectoryPath) {
         try {
-            List<S3ObjectDto> files = s3DownloadService.listObjects(bucketName);
+//            List<S3ObjectDto> files = s3DownloadService.listObjects(bucketName);
 
             // List files that are stored inside 'originals/' from the S3 bucket
-            List<S3ObjectDto> originalFiles = files.stream()
-                    .filter(file -> file.getKey().startsWith("originals/"))
-                    .collect(Collectors.toList());
+//            List<S3ObjectDto> originalFiles = files.stream()
+//                    .filter(file -> file.getKey().startsWith("originals/"))
+//                    .collect(Collectors.toList());
 
             // Retrieve the latest File from the original Files based on the last modified Date
-            S3ObjectDto latestFile = originalFiles.stream()
-                    .max(Comparator.comparing(S3ObjectDto::getLastModified))
-                    .orElse(null);
+//            S3ObjectDto latestFile = originalFiles.stream()
+//                    .max(Comparator.comparing(S3ObjectDto::getLastModified))
+//                    .orElse(null);
 
             // If the latestFile is not null, call the getObjectFromBucket function to download it
             if(latestFile != null) {
@@ -60,7 +55,7 @@ public class S3DownloadController {
                 double sizeInMB = Double.parseDouble(latestFile.getSizeMB().replace(" MB", ""));
                 long fileSizeInBytes = (long) (sizeInMB * 1024 * 1024);
 
-                Optional<String> filePath = s3DownloadService.getObjectFromBucket(bucketName, latestFile.getKey(), originalDirectoryPath, fileSizeInBytes);
+                Optional<String> filePath = s3DownloadService.getObjectFromBucket(bucketName, keyName, originalDirectoryPath, fileSizeInBytes);
 
                 if (filePath.isPresent()) {
                     return ResponseEntity.ok("Successful download of the latest file from the S3 bucket: "

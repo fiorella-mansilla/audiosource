@@ -1,7 +1,9 @@
 package com.audiosource.backend.service.s3;
 
+import com.audiosource.backend.dto.AudioFileMessage;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -26,39 +28,42 @@ public class S3DownloadService {
     private final S3TransferManager s3TransferManager;
     private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(S3DownloadService.class);
 
+    @Value("${aws.s3.bucketName}")
+    private String bucketName;
+
+    @Value("${demucs.inputDirectory}")
+    private String originalDirectoryPath;
+
     @Autowired
     public S3DownloadService(S3Client s3Client, S3TransferManager s3TransferManager) {
         this.s3Client = s3Client;
         this.s3TransferManager = s3TransferManager;
     }
 
-    //TODO: Retrieve bucketName from .env file
     /* Download a file from the specified S3 bucket and keyName to the Local file system. */
-    public Optional<String> getObjectFromBucket(String bucketName, String keyName, String originalDirectoryPath, long fileSizeInBytes) {
+    public Optional<String> getObjectFromBucket(AudioFileMessage message) {
+        long fileSize = message.getFileSize();
+        String keyName = message.getKeyName();
 
         final long LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB
-
         try {
-            int titleStart = keyName.indexOf("/");
-            String fileName = keyName.substring(titleStart + 1);
-            String filePath = originalDirectoryPath + fileName;
-            File myAudioFile = new File(filePath);
+            String fileName = keyName.substring(keyName.lastIndexOf("/") + 1);
+            String originalFilePath = originalDirectoryPath + fileName;
+            File originalAudioFile = new File(originalFilePath);
 
-            if (fileSizeInBytes > LARGE_FILE_THRESHOLD) {
+            if (fileSize > LARGE_FILE_THRESHOLD) {
                 /* If the file is larger than 100MB, then we use S3TransferManager for retrieving it */
                 DownloadFileRequest downloadFileRequest = DownloadFileRequest.builder()
                         .getObjectRequest(b -> b.bucket(bucketName).key(keyName))
                         .addTransferListener(LoggingTransferListener.create())  // Add listener.
-                        .destination(myAudioFile.toPath())
+                        .destination(originalAudioFile.toPath())
                         .build();
 
                 FileDownload downloadFile = s3TransferManager.downloadFile(downloadFileRequest);
-
                 CompletedFileDownload downloadResult = downloadFile.completionFuture().join(); // Wait for the download to complete
 
                 LOGGER.info("Content length [{}]", downloadResult.response().contentLength());
-                LOGGER.info("Successfully downloaded {} to {}", keyName, filePath);
-
+                LOGGER.info("Downloaded large file {} to {}", keyName, originalFilePath);
             } else {
                 // Otherwise, we use GetObjectRequest for smaller files
                 GetObjectRequest getObjectRequest = GetObjectRequest
@@ -71,13 +76,12 @@ public class S3DownloadService {
                 byte[] data = objectBytes.asByteArray();
 
                 // Write the data to a local file
-                try (OutputStream outputStream = new FileOutputStream(myAudioFile)) {
+                try (OutputStream outputStream = new FileOutputStream(originalAudioFile)) {
                     outputStream.write(data);
                 }
-                LOGGER.info("Successfully obtained bytes from S3 object {}", keyName);
+                LOGGER.info("Downloaded small file {} to {}", keyName, originalFilePath);
             }
-            return Optional.of(filePath);
-
+            return Optional.of(originalFilePath);
         } catch(IOException e) {
             LOGGER.error("IO error while getting object from bucket '{}': {}", bucketName, e.getMessage(), e);
             return Optional.empty();

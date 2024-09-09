@@ -30,8 +30,8 @@ public class AudioFilesConsumerService {
     }
 
     /* Consumes the AudioFileMessage from RabbitMQ (`audioFilesQueue`) and initiates the audio processing workflow which:
-     * 1. Downloads the audio file from S3 bucket
-     * 2. Processes the audio file using DEMUCS
+     * 1. Downloads the audio file from S3 bucket using S3DownloadService
+     * 2. Processes the audio file using DemucsProcessingService
      * @param message: AudioFileMessage containing all the necessary metadata for
      * downloading and processing the audio file
     * */

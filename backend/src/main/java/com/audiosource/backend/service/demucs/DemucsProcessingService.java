@@ -15,8 +15,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Service
 public class DemucsProcessingService {
 
-    private Queue<File> audioFilesQueue = new ConcurrentLinkedQueue<>();
-
     private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
 
     private final Dotenv dotenv;
@@ -26,7 +24,6 @@ public class DemucsProcessingService {
      */
     public DemucsProcessingService(Dotenv dotenv) {
         this.dotenv = dotenv;
-        scanDirectoryAndInitializeQueue();
     }
 
     /**
@@ -70,33 +67,6 @@ public class DemucsProcessingService {
             }
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
-        }
-    }
-
-    /**
-     * Scans the input directory for audio files and initializes the audioFilesQueue with them.
-     *
-     * This method searches the specified input directory for audio files in the .mp3 or .wav formats.
-     * It adds all found files to the processing queue. Logs are generated to indicate the results of
-     * the scan, such as the number of files added to the queue and any potential issues.
-     */
-    private void scanDirectoryAndInitializeQueue() {
-
-        String inputDirectory = dotenv.get("DEMUCS_INPUT_DIRECTORY");
-
-        File dir = new File(inputDirectory);
-        if (dir.isDirectory() && dir.canRead()) {
-            File[] files = dir.listFiles((d, name) -> name.endsWith(".mp3") || name.endsWith(".wav"));
-            if (files != null) {
-                for (File file : files) {
-                    audioFilesQueue.add(file);
-                }
-                logger.info("Initialized audio files queue with {} files from directory {}", files.length, inputDirectory);
-            } else {
-                logger.warn("No audio files found in directory {}", inputDirectory);
-            }
-        } else {
-            logger.error("Input directory {} is not a valid directory or cannot be read", inputDirectory);
         }
     }
 

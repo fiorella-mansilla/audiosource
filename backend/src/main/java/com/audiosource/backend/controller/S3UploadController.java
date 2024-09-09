@@ -1,6 +1,10 @@
 package com.audiosource.backend.controller;
 
+import com.audiosource.backend.dto.AudioFileMessage;
+import com.audiosource.backend.dto.ClientUploadRequest;
 import com.audiosource.backend.exception.S3UploadException;
+import com.audiosource.backend.messaging.producer.AudioFilesProducerService;
+import com.audiosource.backend.service.metadata.FileMetadataService;
 import com.audiosource.backend.service.s3.S3UploadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,15 +24,18 @@ import java.util.Map;
  * Provides endpoints to upload files to S3 and generate pre-signed URLs.
  */
 @RestController
-@RequestMapping("/s3")
+@RequestMapping("/s3/upload")
 public class S3UploadController {
-
     private final S3UploadService s3UploadService;
+    private final AudioFilesProducerService audioFilesProducerService;
+    private final FileMetadataService fileMetadataService;
     private static final Logger LOGGER = LoggerFactory.getLogger(S3UploadController.class);
 
     @Autowired
-    public S3UploadController(S3UploadService s3UploadService) {
+    public S3UploadController(AudioFilesProducerService audioFilesProducerService, S3UploadService s3UploadService, FileMetadataService fileMetadataService) {
+        this.audioFilesProducerService = audioFilesProducerService;
         this.s3UploadService = s3UploadService;
+        this.fileMetadataService = fileMetadataService;
     }
 
     /**
@@ -40,7 +47,7 @@ public class S3UploadController {
      * @return ResponseEntity with a success message and pre-signed URL upon successful upload,
      *         or an error message if the upload fails.
      */
-    @PostMapping("/upload/processed-files")
+    @PostMapping("/processed-files")
     public ResponseEntity<String> uploadProcessedFilesToS3(
             @RequestParam String directoryPath,
             @RequestParam String bucketName) {
@@ -66,7 +73,6 @@ public class S3UploadController {
         }
     }
 
-
     /**
      * Creates a pre-signed PUT request for the user to directly upload a file to S3.
      *
@@ -74,7 +80,7 @@ public class S3UploadController {
      * @return ResponseEntity with the pre-signed URL and additional data upon success,
      *         or an error message if the URL generation fails.
      */
-    @PostMapping("/upload/generate-signed-url")
+    @PostMapping("/generate-signed-url")
     public ResponseEntity<?> createPresignedPutRequest(@RequestBody Map<String, String> request) {
 
         try {
@@ -99,4 +105,51 @@ public class S3UploadController {
         }
     }
 
+    /**
+     * Notifies the backend when a file upload is successfully completed to S3.
+     * This endpoint will be called by the frontend after a successful file upload to S3.
+     *
+     * @param request A map containing the fileName and contentType of the uploaded file.
+     * @return ResponseEntity with a success message or an error message if the notification fails.
+     */
+    @PostMapping("/notify-client-upload")
+    public ResponseEntity<String> notifyClientUpload(@RequestBody ClientUploadRequest request) {
+        LOGGER.info("Received notification for file upload: {}", request);
+        try {
+            // Validate required fields
+            if (request.getKeyName() == null || request.getSeparationType() == null
+                    || request.getOutputFormat() == null || request.getUserEmail() == null) {
+                throw new IllegalArgumentException("Missing required fields");
+            }
+
+            // Generate a unique correlation ID
+            String correlationId = java.util.UUID.randomUUID().toString();
+
+            // Save User email, correlation ID, original key name and notification status to the database.
+            fileMetadataService.saveInitialMetadata(correlationId, request.getUserEmail(), request.getKeyName(), "PENDING");
+
+            // Create a new AudioFileMessage object DTO
+            AudioFileMessage audioFileMessage = new AudioFileMessage(
+                    correlationId, //TODO: Add correlation ID at every queue
+                    request.getKeyName(),
+                    request.getFileSize(),
+                    request.getSeparationType(),
+                    request.getOutputFormat()
+            );
+
+            // Publish the message to RabbitMQ
+            audioFilesProducerService.publishClientUploadNotification(audioFileMessage);
+
+            LOGGER.info("Published message to AudioFilesQueue with RabbitMQ: {}", audioFileMessage);
+            return ResponseEntity.ok("Notification sent successfully");
+
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Invalid request: {}", request, e);
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (Exception e) {
+            LOGGER.error("Error processing file upload notification: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred while processing the notification.");
+        }
+    }
 }

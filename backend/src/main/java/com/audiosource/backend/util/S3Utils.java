@@ -17,17 +17,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class S3Utils {
-
-    public static DateTimeFormatter DATE_FORMATTER = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
-
     private static final Logger logger = LoggerFactory.getLogger(S3Utils.class);
     private static final Set<String> SUPPORTED_FORMATS = Set.of(".mp3", ".wav");
 
 
     // Zip Utilities
-
     public static Path toZipDirectory(Path sourceDirectory) throws IOException {
 
         // Compute the path for the zip file
@@ -79,11 +73,6 @@ public class S3Utils {
         String date = customFormatter.format(Instant.now());
         String shortenedUuid = UUID.randomUUID().toString().substring(0,8);
         return date + "_" + shortenedUuid;
-    }
-
-    /* Formats an Instant to a readable date-time string. */
-    public static String formatLastModified(Instant lastModified) {
-        return DATE_FORMATTER.format(lastModified);
     }
 
     // File Utilities

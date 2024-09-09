@@ -2,31 +2,32 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Alert, Progress } from 'reactstrap';
 import { useUpload } from '../../hooks/useUpload';
 import Background from "../../assets/images/hero-4-bg-img.png";
+import validateForm from '../../middleware/validateForm.js';
 
 const Section = () => {
   const { uploadFile, uploadProgress, uploadError, uploadSuccess, resetUploadState } = useUpload();
   const [file, setFile] = useState(null);
-  const [sepType, setSepType] = useState("");
-  const [email, setEmail] = useState(""); 
-  const [encoding, setEncoding] = useState("");
+  const [separationType, setSeparationType] = useState("");
+  const [userEmail, setUserEmail] = useState(""); 
+  const [outputFormat, setOutputFormat] = useState("");
   
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!file) {
-      alert('Please select a file to upload.');
+    const errorMessage = validateForm(file, separationType, userEmail, outputFormat);
+    if (errorMessage) {
+      alert(errorMessage);
       return;
     }
-
-    // if (!sepType || !email || !encoding) {
-    //   alert('Please fill in all fields.');
-    //   return;
-    // }
 
     // Reset status before starting a new upload
     resetUploadState();
 
-    await uploadFile(file);
+    try {
+      await uploadFile(file, userEmail, outputFormat, separationType);
+    } catch (error) {
+      console.error('Error uploading file', error);
+    }
   };
 
   return (
@@ -65,14 +66,14 @@ const Section = () => {
                   />
                 </FormGroup>
                 <FormGroup className="mb-3">
-                  <Label for="sep-type" className="f-15">Separation Type</Label>
+                  <Label for="separationType" className="f-15">Separation Type</Label>
                   <Input 
                     type="select" 
                     className="form-control" 
-                    id="sep-type" 
-                    name="sepType"
-                    value={sepType} 
-                    onChange={(e) => setSepType(e.target.value)}
+                    id="separationType" 
+                    name="separationType"
+                    value={separationType} 
+                    onChange={(e) => setSeparationType(e.target.value)}
                   >
                     <option disabled value="">Choose the type of Separation</option>
                     <option>Vocal Remover</option>
@@ -80,25 +81,25 @@ const Section = () => {
                   </Input>
                 </FormGroup>
                 <FormGroup className="mb-3">
-                  <Label for="email" className="f-15">Email to</Label>
+                  <Label for="userEmail" className="f-15">Email to</Label>
                   <Input 
-                    type="email" 
+                    type="userEmail" 
                     className="form-control" 
-                    id="email" 
+                    id="userEmail" 
                     placeholder="Enter your e-mail" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
                   />
                 </FormGroup>
                 <FormGroup className="mb-4">
-                  <Label for="encoding" className="f-15">Output Encoding</Label>
+                  <Label for="outputFormat" className="f-15">Output Format</Label>
                   <Input 
                     type="select" 
                     className="form-control" 
-                    id="encoding" 
-                    name="encoding"
-                    value={encoding} 
-                    onChange={(e) => setEncoding(e.target.value)}
+                    id="outputFormat" 
+                    name="outputFormat"
+                    value={outputFormat} 
+                    onChange={(e) => setOutputFormat(e.target.value)}
                   >
                     <option value="MP3">MP3</option>
                     <option value="WAV">WAV</option>

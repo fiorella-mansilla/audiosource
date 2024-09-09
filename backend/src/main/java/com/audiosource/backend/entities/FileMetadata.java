@@ -14,7 +14,6 @@ public class FileMetadata {
     private String correlationId;
     private String userEmail;
     private String originalKeyName;
-    private String processedKeyName;
     private String downloadUrl;
     private String notificationStatus;
     @CreatedDate
@@ -53,14 +52,6 @@ public class FileMetadata {
 
     public void setOriginalKeyName(String originalKeyName) {
         this.originalKeyName = originalKeyName;
-    }
-
-    public String getProcessedKeyName() {
-        return processedKeyName;
-    }
-
-    public void setProcessedKeyName(String processedKeyName) {
-        this.processedKeyName = processedKeyName;
     }
 
     public String getDownloadUrl() {

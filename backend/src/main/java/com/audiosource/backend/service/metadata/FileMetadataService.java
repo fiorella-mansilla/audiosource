@@ -31,14 +31,6 @@ public class FileMetadataService {
         return fileMetadataRepository.save(fileMetadata);
     }
 
-    // Save originalKeyName and notificationStatus in the FileMetadata collection
-    public FileMetadata saveOriginalKeyNameAndNotificationStatus(String originalKeyName, String notificationStatus) {
-        FileMetadata fileMetadata = new FileMetadata();
-        fileMetadata.setOriginalKeyName(originalKeyName);
-        fileMetadata.setNotificationStatus(notificationStatus);
-        return fileMetadataRepository.save(fileMetadata);  // Save the entire FileMetadata object
-    }
-
     // Retrieve FileMetadata by correlation ID
     public Optional<FileMetadata> findByCorrelationId(String correlationId) {
         return fileMetadataRepository.findByCorrelationId(correlationId);

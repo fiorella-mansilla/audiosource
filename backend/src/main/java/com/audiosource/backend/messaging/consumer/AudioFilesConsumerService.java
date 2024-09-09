@@ -55,7 +55,7 @@ public class AudioFilesConsumerService {
             // Triggers the processing of the downloaded file using DemucsProcessingService
             try {
                 // TODO: In future, pass message.getSeparationType() and message.getOutputFormat() from message
-                demucsProcessingService.processNextAudioFile(originalAudioFilePath);
+                demucsProcessingService.processDownloadedAudioFile(originalAudioFilePath);
 
                 LOGGER.info("File processing completed for correlation ID {}", message.getCorrelationId());
 

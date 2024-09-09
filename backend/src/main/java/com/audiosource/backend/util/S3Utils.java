@@ -11,15 +11,12 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Set;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class S3Utils {
     private static final Logger logger = LoggerFactory.getLogger(S3Utils.class);
-    private static final Set<String> SUPPORTED_FORMATS = Set.of(".mp3", ".wav");
-
 
     // Zip Utilities
     public static Path toZipDirectory(Path sourceDirectory) throws IOException {
@@ -73,11 +70,5 @@ public class S3Utils {
         String date = customFormatter.format(Instant.now());
         String shortenedUuid = UUID.randomUUID().toString().substring(0,8);
         return date + "_" + shortenedUuid;
-    }
-
-    // File Utilities
-
-    public static boolean isSupportedFormat(String filePath) {
-        return SUPPORTED_FORMATS.stream().anyMatch(filePath::endsWith);
     }
 }

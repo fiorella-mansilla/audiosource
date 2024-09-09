@@ -1,6 +1,5 @@
 package com.audiosource.backend.controller;
 
-import com.audiosource.backend.dto.S3ObjectDto;
 import com.audiosource.backend.service.s3.S3DownloadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,17 +29,18 @@ public class S3DownloadController {
         this.s3DownloadService = s3DownloadService;
     }
 
+    //TODO: Retrieve bucketName from .env file
     /**
      * Downloads the latest file from the specified S3 bucket.
      *
      * @param bucketName    The name of the S3 bucket.
-     * @param directoryPath The local directory path to save the downloaded file.
+     * @param originalDirectoryPath The local directory path to save the downloaded file.
      * @return ResponseEntity with a success message and file path upon successful download,
      *         or an error message if the download fails or no files are found.
      */
     @GetMapping("/download/latest-files")
     public ResponseEntity<String> downloadLatestFile(@RequestParam String bucketName,
-                                                     @RequestParam String directoryPath) {
+                                                     @RequestParam String originalDirectoryPath) {
         try {
             List<S3ObjectDto> files = s3DownloadService.listObjects(bucketName);
 
@@ -60,7 +60,7 @@ public class S3DownloadController {
                 double sizeInMB = Double.parseDouble(latestFile.getSizeMB().replace(" MB", ""));
                 long fileSizeInBytes = (long) (sizeInMB * 1024 * 1024);
 
-                Optional<String> filePath = s3DownloadService.getObjectFromBucket(bucketName, latestFile.getKey(), directoryPath, fileSizeInBytes);
+                Optional<String> filePath = s3DownloadService.getObjectFromBucket(bucketName, latestFile.getKey(), originalDirectoryPath, fileSizeInBytes);
 
                 if (filePath.isPresent()) {
                     return ResponseEntity.ok("Successful download of the latest file from the S3 bucket: "
@@ -76,24 +76,6 @@ public class S3DownloadController {
             logger.error("Error downloading the file from the S3 bucket: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error downloading the file from the S3 bucket");
-        }
-    }
-
-    /**
-     * Lists all files from the specified S3 bucket.
-     *
-     * @param bucketName The name of the S3 bucket.
-     * @return List of S3ObjectDto representing the objects in the S3 bucket.
-     */
-    @GetMapping("/s3-objects")
-    public ResponseEntity<List<S3ObjectDto>> listObjects(@RequestParam String bucketName) {
-        try {
-            List<S3ObjectDto> objects = s3DownloadService.listObjects(bucketName);
-            return ResponseEntity.ok(objects);
-        } catch (Exception e) {
-            logger.error("Error listing objects from the S3 bucket: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.emptyList());
         }
     }
 }

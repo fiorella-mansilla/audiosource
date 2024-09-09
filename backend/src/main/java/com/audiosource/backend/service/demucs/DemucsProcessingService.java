@@ -8,15 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Service
 public class DemucsProcessingService {
 
     private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
-
     private final Dotenv dotenv;
 
     /**
@@ -68,17 +64,5 @@ public class DemucsProcessingService {
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
         }
-    }
-
-    /**
-     * Fetches and removes the next audio file from the queue of files to be processed.
-     * If the queue is empty, it returns an empty Optional.
-     *
-     * @return Optional containing the absolute path of the next audio file, or an empty Optional if
-     *         the queue is empty.
-     */
-    public Optional<String> retrieveNextAudioFilePath() {
-        File nextFile = audioFilesQueue.poll(); // Retrieves and removes the next file from the Queue
-        return nextFile != null ? Optional.of(nextFile.getAbsolutePath()) : Optional.empty();
     }
 }

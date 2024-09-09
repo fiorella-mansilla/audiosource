@@ -2,6 +2,7 @@ package com.audiosource.backend.messaging.consumer;
 
 import com.audiosource.backend.dto.AudioFileMessage;
 import com.audiosource.backend.entities.FileMetadata;
+import com.audiosource.backend.exception.DemucsProcessingException;
 import com.audiosource.backend.service.demucs.DemucsProcessingService;
 import com.audiosource.backend.service.metadata.FileMetadataService;
 import com.audiosource.backend.service.s3.S3DownloadService;
@@ -28,6 +29,12 @@ public class AudioFilesConsumerService {
         this.demucsProcessingService = demucsProcessingService;
     }
 
+    /* Consumes messages from the audioFiles queue and initiates the audio processing workflow which:
+     * 1. Downloads the audio file from S3 bucket
+     * 2. Processes the audio file using DEMUCS
+     * @param message: AudioFileMessage containing all the necessary metadata for
+     * downloading and processing the audio file
+    * */
     @RabbitListener(queues = "${audioFiles.queue.name}")
     public void consumeAudioFileMessage(AudioFileMessage message) {
         LOGGER.info("Received message: {}", message);
@@ -40,20 +47,28 @@ public class AudioFilesConsumerService {
         }
 //        FileMetadata fileMetadata = fileMetadataOpt.get();
 
-        // Trigger download of latest audio file from S3 bucket
+        // Triggers the download of latest audio file from S3 bucket
         Optional<String> downloadedFilePath = s3DownloadService.getObjectFromBucket(message);
         if (downloadedFilePath.isPresent()) {
             String originalAudioFilePath = downloadedFilePath.get();
 
-            // Trigger processing of audio file using Demucs
-            //TODO: After refactoring Demucs Service, pass message.getSeparationType() and message.getOutputFormat()
-            demucsProcessingService.processNextAudioFile(originalAudioFilePath);
+            // Triggers the processing of the downloaded file using Demucs
+            try {
+                // TODO: In future, pass message.getSeparationType() and message.getOutputFormat() from message
+                demucsProcessingService.processNextAudioFile(originalAudioFilePath);
 
-            LOGGER.info("File processing completed for correlation ID {}", message.getCorrelationId());
+                LOGGER.info("File processing completed for correlation ID {}", message.getCorrelationId());
 
-            //TODO: Update File metadata with processing status?
+                // TODO: Update the file metadata with the processing status (e.g., "COMPLETED"). ?
+                // fileMetadataService.updateStatus(fileMetadataOpt.get(), "COMPLETED");
+            } catch (DemucsProcessingException e) {
+                LOGGER.error("Failed to process file for correlation ID {}", message.getCorrelationId());
+                // TODO: Optionally update metadata with failure status (errorQueue)
+            }
+
         } else {
             LOGGER.error("Failed to download file for correlation ID {}", message.getCorrelationId());
+            // TODO: Optionally update metadata with download failure status (errorQueue)
         }
     }
 }

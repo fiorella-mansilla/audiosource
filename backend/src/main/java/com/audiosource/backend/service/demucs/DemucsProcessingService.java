@@ -1,7 +1,6 @@
 package com.audiosource.backend.service.demucs;
 
 import com.audiosource.backend.exception.DemucsProcessingException;
-import com.audiosource.backend.util.S3Utils;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,9 +13,9 @@ import java.util.List;
 @Service
 public class DemucsProcessingService {
     private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
-    private final Dotenv dotenv;
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList(".mp3", ".wav");
-
+    private final Dotenv dotenv;
+    
     public DemucsProcessingService(Dotenv dotenv) {
         this.dotenv = dotenv;
     }
@@ -27,7 +26,11 @@ public class DemucsProcessingService {
      * @param originalAudioFilePath The absolute path of the audio file to process.
      * @throws DemucsProcessingException If an I/O error occurs or the process fails.
      */
-    public void processDownloadedAudioFile(String originalAudioFilePath) throws DemucsProcessingException {
+    public void processRetrievedAudioFile(String originalAudioFilePath) throws DemucsProcessingException {
+        // Ensure the service is ready for processing
+        if (!isReadyForProcessing()) {
+            throw new DemucsProcessingException("Service is not ready for processing. Check environment and output directory.");
+        }
         try {
             File originalAudioFile = new File(originalAudioFilePath);
 
@@ -59,6 +62,33 @@ public class DemucsProcessingService {
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
         }
+    }
+
+    /**
+     * Checks if the Demucs processing service is ready to handle audio processing.
+     * This involves checking necessary conditions like environment variables, directories, etc.
+     *
+     * @return boolean indicating if the service is ready.
+     */
+    public boolean isReadyForProcessing() {
+        // Check if the Python environment for Demucs exists and is executable
+        String pythonEnvPath = dotenv.get("PYTHON_ENV_PATH");
+        File pythonEnv = new File(pythonEnvPath);
+        if (!pythonEnv.exists() || !pythonEnv.canExecute()) {
+            logger.error("Python environment for Demucs is not available or executable.");
+            return false;
+        }
+
+        // Check if the Demucs output directory is available and writable
+        String demucsOutputDirectory = dotenv.get("DEMUCS_OUTPUT_DIRECTORY");
+        File outputDir = new File(demucsOutputDirectory);
+        if (!outputDir.exists() || !outputDir.canWrite()) {
+            logger.error("Demucs output directory is not available or writable.");
+            return false;
+        }
+
+        // If both checks pass, the service is ready for processing
+        return true;
     }
 
     /* Check if the file format from the downloaded file is supported by Demucs */

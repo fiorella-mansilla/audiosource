@@ -1,14 +1,17 @@
 package com.audiosource.backend.dto;
 
+import com.audiosource.backend.enums.OutputFormat;
+import com.audiosource.backend.enums.SeparationType;
+
 /* This class has all the necessary metadata to be consumed by the S3DownloadService & the DemucsProcessingService*/
 public class AudioFileMessage {
     private String correlationId;
     private String keyName;
     private long fileSize;
-    private String separationType;
-    private String outputFormat;
+    private SeparationType separationType;
+    private OutputFormat outputFormat;
 
-    public AudioFileMessage(String correlationId, String keyName, long fileSize, String separationType, String outputFormat) {
+    public AudioFileMessage(String correlationId, String keyName, long fileSize, SeparationType separationType, OutputFormat outputFormat) {
         this.correlationId = correlationId;
         this.keyName = keyName;
         this.fileSize = fileSize;
@@ -40,19 +43,19 @@ public class AudioFileMessage {
         this.fileSize = fileSize;
     }
 
-    public String getSeparationType() {
+    public SeparationType getSeparationType() {
         return separationType;
     }
 
-    public void setSeparationType(String separationType) {
+    public void setSeparationType(SeparationType separationType) {
         this.separationType = separationType;
     }
 
-    public String getOutputFormat() {
+    public OutputFormat getOutputFormat() {
         return outputFormat;
     }
 
-    public void setOutputFormat(String outputFormat) {
+    public void setOutputFormat(OutputFormat outputFormat) {
         this.outputFormat = outputFormat;
     }
 

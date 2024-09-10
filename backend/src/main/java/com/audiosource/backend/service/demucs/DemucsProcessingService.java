@@ -1,9 +1,11 @@
 package com.audiosource.backend.service.demucs;
 
+import com.audiosource.backend.enums.OutputFormat;
+import com.audiosource.backend.enums.SeparationType;
 import com.audiosource.backend.exception.DemucsProcessingException;
-import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
@@ -14,19 +16,22 @@ import java.util.List;
 public class DemucsProcessingService {
     private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList(".mp3", ".wav");
-    private final Dotenv dotenv;
-    
-    public DemucsProcessingService(Dotenv dotenv) {
-        this.dotenv = dotenv;
-    }
+
+    @Value("${demucs.outputDirectory}")
+    private String demucsOutputDirectory;
+
+    @Value("${python.env.path}")
+    private String pythonEnvPath;
 
     /**
      * Processes the downloaded audio file using Demucs for music source separation.
      *
      * @param originalAudioFilePath The absolute path of the audio file to process.
+     * @param separationType The type of separation to perform (vocal remover or stems splitter).
+     * @param outputFormat The format of the output audio files (mp3 or wav).
      * @throws DemucsProcessingException If an I/O error occurs or the process fails.
      */
-    public void processRetrievedAudioFile(String originalAudioFilePath) throws DemucsProcessingException {
+    public void processRetrievedAudioFile(String originalAudioFilePath, SeparationType separationType, OutputFormat outputFormat) throws DemucsProcessingException {
         // Ensure the service is ready for processing
         if (!isReadyForProcessing()) {
             throw new DemucsProcessingException("Service is not ready for processing. Check environment and output directory.");
@@ -39,16 +44,16 @@ public class DemucsProcessingService {
                 throw new IllegalArgumentException("Audio file not found : " + originalAudioFilePath);
             }
 
+            // Validate if audio format from original file is supported
             if (!isSupportedFormat(originalAudioFilePath)) {
                 throw new IllegalArgumentException("Unsupported file format: " + originalAudioFilePath);
             }
 
-            String pythonEnvPath = dotenv.get("PYTHON_ENV_PATH");
             String[] commandArgs = { pythonEnvPath, "-m", "demucs", "-d", "cpu", originalAudioFilePath };
 
             // Execute Demucs command via ProcessBuilder
             ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
-            processBuilder.directory(new File(dotenv.get("DEMUCS_OUTPUT_DIRECTORY")));
+            processBuilder.directory(new File(demucsOutputDirectory));
             processBuilder.inheritIO();
 
             Process process = processBuilder.start();
@@ -72,7 +77,6 @@ public class DemucsProcessingService {
      */
     public boolean isReadyForProcessing() {
         // Check if the Python environment for Demucs exists and is executable
-        String pythonEnvPath = dotenv.get("PYTHON_ENV_PATH");
         File pythonEnv = new File(pythonEnvPath);
         if (!pythonEnv.exists() || !pythonEnv.canExecute()) {
             logger.error("Python environment for Demucs is not available or executable.");
@@ -80,7 +84,6 @@ public class DemucsProcessingService {
         }
 
         // Check if the Demucs output directory is available and writable
-        String demucsOutputDirectory = dotenv.get("DEMUCS_OUTPUT_DIRECTORY");
         File outputDir = new File(demucsOutputDirectory);
         if (!outputDir.exists() || !outputDir.canWrite()) {
             logger.error("Demucs output directory is not available or writable.");

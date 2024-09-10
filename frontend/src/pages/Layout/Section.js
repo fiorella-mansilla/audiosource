@@ -7,9 +7,9 @@ import validateForm from '../../middleware/validateForm.js';
 const Section = () => {
   const { uploadFile, uploadProgress, uploadError, uploadSuccess, resetUploadState } = useUpload();
   const [file, setFile] = useState(null);
-  const [separationType, setSeparationType] = useState("");
+  const [separationType, setSeparationType] = useState("STEMS_SPLITTER"); // Set initial default value as Stems Splitter
   const [userEmail, setUserEmail] = useState(""); 
-  const [outputFormat, setOutputFormat] = useState("");
+  const [outputFormat, setOutputFormat] = useState("WAV"); // Set initial default value as WAV
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,12 +72,12 @@ const Section = () => {
                     className="form-control" 
                     id="separationType" 
                     name="separationType"
-                    value={separationType} 
+                    value={separationType} // Default to Stems Splitter
                     onChange={(e) => setSeparationType(e.target.value)}
                   >
                     <option disabled value="">Choose the type of Separation</option>
-                    <option>Vocal Remover</option>
-                    <option>Stems Splitter</option>
+                    <option value="STEMS_SPLITTER">Stems Splitter</option>
+                    <option value="VOCAL_REMOVER">Vocal Remover</option>
                   </Input>
                 </FormGroup>
                 <FormGroup className="mb-3">
@@ -86,7 +86,7 @@ const Section = () => {
                     type="userEmail" 
                     className="form-control" 
                     id="userEmail" 
-                    placeholder="Enter your e-mail" 
+                    placeholder="Enter your E-mail" 
                     value={userEmail}
                     onChange={(e) => setUserEmail(e.target.value)}
                   />
@@ -98,11 +98,11 @@ const Section = () => {
                     className="form-control" 
                     id="outputFormat" 
                     name="outputFormat"
-                    value={outputFormat} 
+                    value={outputFormat} // Default to WAV
                     onChange={(e) => setOutputFormat(e.target.value)}
                   >
-                    <option value="MP3">MP3</option>
                     <option value="WAV">WAV</option>
+                    <option value="MP3">MP3</option>
                   </Input>
                 </FormGroup>
                 {uploadProgress > 0 && (

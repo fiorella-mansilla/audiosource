@@ -1,6 +1,7 @@
 package com.audiosource.backend.messaging.consumer;
 
 import com.audiosource.backend.dto.AudioFileMessage;
+import com.audiosource.backend.dto.ProcessingContext;
 import com.audiosource.backend.entities.FileMetadata;
 import com.audiosource.backend.exception.DemucsProcessingException;
 import com.audiosource.backend.service.demucs.DemucsProcessingService;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -17,7 +19,6 @@ import java.util.Optional;
 @Service
 public class AudioFilesConsumerService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AudioFilesConsumerService.class);
-
     private final S3DownloadService s3DownloadService;
     private final FileMetadataService fileMetadataService;
     private final DemucsProcessingService demucsProcessingService;
@@ -37,7 +38,7 @@ public class AudioFilesConsumerService {
     * */
     @RabbitListener(queues = "${audioFiles.queue.name}")
     public void consumeAudioFileMessage(AudioFileMessage message) {
-        LOGGER.info("Received message: {}", message);
+        LOGGER.info("Received message from AudioFilesQueue: {}", message);
 
         // Retrieves metadata for the audio file using FileMetadataService
         Optional<FileMetadata> fileMetadataOpt = fileMetadataService.findByCorrelationId(message.getCorrelationId());
@@ -45,30 +46,44 @@ public class AudioFilesConsumerService {
             LOGGER.error("No file metadata found for correlationId: {}", message.getCorrelationId());
             return;
         }
-//        FileMetadata fileMetadata = fileMetadataOpt.get();
+        // FileMetadata fileMetadata = fileMetadataOpt.get(); //TODO: Use fileMetadata for updating JobStatus
 
         // Downloads the audio file from S3 bucket using S3DownloadService
         Optional<String> downloadedFilePath = s3DownloadService.getObjectFromBucket(message);
         if (downloadedFilePath.isPresent()) {
             String originalAudioFilePath = downloadedFilePath.get();
 
-            // Triggers the processing of the downloaded file using DemucsProcessingService
-            try {
-                // TODO: In future, pass message.getSeparationType() and message.getOutputFormat() from message
-                demucsProcessingService.processDownloadedAudioFile(originalAudioFilePath);
-
-                LOGGER.info("File processing completed for correlation ID {}", message.getCorrelationId());
-
-                // TODO: Update the file metadata with the processing status (e.g., "COMPLETED"). ?
-                // fileMetadataService.updateStatus(fileMetadataOpt.get(), "COMPLETED");
-            } catch (DemucsProcessingException e) {
-                LOGGER.error("Failed to process file for correlation ID {}", message.getCorrelationId());
-                // TODO: Optionally update metadata with failure status (errorQueue)
-            }
-
+            /* After downloading, a new ProcessingContext object containing the metadata needed by Demucs is passed
+            to the processFileAsync method, which runs asynchronously.*/
+            ProcessingContext context = new ProcessingContext(originalAudioFilePath, message);
+            processFileAsync(context);  // Asynchronous call
         } else {
             LOGGER.error("Failed to download file for correlation ID {}", message.getCorrelationId());
             // TODO: Optionally update metadata with download failure status (errorQueue)
+        }
+    }
+
+    /* The DemucsProcessingService processes the file asynchronously using the path and metadata */
+    @Async
+    public void processFileAsync(ProcessingContext context) {
+        String originalAudioFilePath = context.getOriginalAudioFilePath();
+        AudioFileMessage message = context.getAudioFileMessage();
+
+        try {
+            LOGGER.info("Processing file for correlation ID {}", message.getCorrelationId());
+
+            // Pass metadata and original audio file to the DemucsProcessingService
+            // TODO: In future, pass message.getSeparationType() and message.getOutputFormat() from message
+            demucsProcessingService.processRetrievedAudioFile(originalAudioFilePath);
+
+            LOGGER.info("File processing completed for correlation ID {}", message.getCorrelationId());
+
+            // TODO: Update the file metadata with the processing status (e.g., "COMPLETED"). ?
+            // fileMetadataService.updateStatus(fileMetadataOpt.get(), "COMPLETED");
+
+        } catch (DemucsProcessingException e) {
+            LOGGER.error("Failed to process file for correlation ID {}", message.getCorrelationId());
+            // TODO: Optionally update metadata with failure status (errorQueue)
         }
     }
 }

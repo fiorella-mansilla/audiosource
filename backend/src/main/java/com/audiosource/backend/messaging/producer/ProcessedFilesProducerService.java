@@ -1,5 +1,6 @@
 package com.audiosource.backend.messaging.producer;
 
+import com.audiosource.backend.dto.ProcessedFileMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -23,7 +24,7 @@ public class ProcessedFilesProducerService {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publishProcessedFileNotification(String processedFileMessage) {
+    public void publishProcessedFileNotification(ProcessedFileMessage processedFileMessage) {
         rabbitTemplate.convertAndSend(processedFilesExchangeName, processedFilesRoutingKey, processedFileMessage);
         LOGGER.info("Published message to ProcessedFilesQueue: {}", processedFileMessage);
     }

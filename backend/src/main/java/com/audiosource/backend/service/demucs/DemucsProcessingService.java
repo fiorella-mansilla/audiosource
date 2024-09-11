@@ -20,15 +20,16 @@ public class DemucsProcessingService {
     @Value("${python.env.path}")
     private String pythonEnvPath;
 
+
     /**
-     * Processes the downloaded audio file using Demucs for music source separation.
+     * Processes the downloaded audio file using the Demucs AI model for music source separation.
      *
      * @param originalAudioFilePath The absolute path of the audio file to process.
      * @param separationType The type of separation to perform (vocal remover or stems splitter).
      * @param outputFormat The format of the output audio files (mp3 or wav).
      * @throws DemucsProcessingException If an I/O error occurs or the process fails.
      */
-    public void processRetrievedAudioFile(String originalAudioFilePath, SeparationType separationType, OutputFormat outputFormat) throws DemucsProcessingException {
+    public String processRetrievedAudioFile(String originalAudioFilePath, SeparationType separationType, OutputFormat outputFormat) throws DemucsProcessingException {
         // Ensure the service is ready for processing
         if (!isReadyForProcessing()) {
             throw new DemucsProcessingException("Service is not ready for processing. Check environment and output directory.");
@@ -36,11 +37,23 @@ public class DemucsProcessingService {
 
         validateAudioFile(originalAudioFilePath);
 
+        // Construct the Demucs processing command arguments
         String[] commandArgs = constructCommandArgs(separationType, outputFormat, originalAudioFilePath);
 
         try {
             executeCommand(commandArgs);
-            LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", originalAudioFilePath);
+
+            // Extract the original file name and create the processed file path
+            File originalFile = new File(originalAudioFilePath);
+            String originalFileName = originalFile.getName();
+            String originalFileNameWithoutExtension = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+
+            String processedAudioFilePath = demucsOutputDirectory + File.separator + "htdemucs"
+                    + File.separator + originalFileNameWithoutExtension;
+
+            LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", processedAudioFilePath);
+
+            return processedAudioFilePath;
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
         }
@@ -121,7 +134,6 @@ public class DemucsProcessingService {
             LOGGER.error("Demucs output directory is not available or writable.");
             return false;
         }
-
         // If both checks pass, the service is ready for processing
         return true;
     }

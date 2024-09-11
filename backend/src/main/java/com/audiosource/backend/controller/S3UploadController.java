@@ -95,7 +95,7 @@ public class S3UploadController {
 
             // Create a new AudioFileMessage object DTO
             AudioFileMessage audioFileMessage = new AudioFileMessage(
-                    correlationId, //TODO: Send correlation ID to every queue
+                    correlationId,
                     request.getKeyName(),
                     request.getFileSize(),
                     request.getSeparationType(),

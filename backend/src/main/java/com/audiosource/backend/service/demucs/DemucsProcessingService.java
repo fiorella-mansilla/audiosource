@@ -1,10 +1,13 @@
 package com.audiosource.backend.service.demucs;
 
+import com.audiosource.backend.dto.ProcessedFileMessage;
 import com.audiosource.backend.enums.OutputFormat;
 import com.audiosource.backend.enums.SeparationType;
 import com.audiosource.backend.exception.DemucsProcessingException;
+import com.audiosource.backend.messaging.producer.ProcessedFilesProducerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.File;
@@ -12,6 +15,8 @@ import java.io.IOException;
 
 @Service
 public class DemucsProcessingService {
+
+    private final ProcessedFilesProducerService processedFilesProducerService;
     private static final Logger LOGGER = LoggerFactory.getLogger(DemucsProcessingService.class);
 
     @Value("${demucs.outputDirectory}")
@@ -20,15 +25,20 @@ public class DemucsProcessingService {
     @Value("${python.env.path}")
     private String pythonEnvPath;
 
+    @Autowired
+    public DemucsProcessingService(ProcessedFilesProducerService processedFilesProducerService) {
+        this.processedFilesProducerService = processedFilesProducerService;
+    }
+
     /**
-     * Processes the downloaded audio file using Demucs for music source separation.
+     * Processes the downloaded audio file using the Demucs AI model for music source separation.
      *
      * @param originalAudioFilePath The absolute path of the audio file to process.
      * @param separationType The type of separation to perform (vocal remover or stems splitter).
      * @param outputFormat The format of the output audio files (mp3 or wav).
      * @throws DemucsProcessingException If an I/O error occurs or the process fails.
      */
-    public void processRetrievedAudioFile(String originalAudioFilePath, SeparationType separationType, OutputFormat outputFormat) throws DemucsProcessingException {
+    public void processRetrievedAudioFile(String correlationId, String originalAudioFilePath, SeparationType separationType, OutputFormat outputFormat) throws DemucsProcessingException {
         // Ensure the service is ready for processing
         if (!isReadyForProcessing()) {
             throw new DemucsProcessingException("Service is not ready for processing. Check environment and output directory.");
@@ -36,11 +46,28 @@ public class DemucsProcessingService {
 
         validateAudioFile(originalAudioFilePath);
 
+        // Construct the Demucs processing command arguments
         String[] commandArgs = constructCommandArgs(separationType, outputFormat, originalAudioFilePath);
 
         try {
             executeCommand(commandArgs);
-            LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", originalAudioFilePath);
+
+            // Extract the original file name and create the processed file path
+            File originalFile = new File(originalAudioFilePath);
+            String originalFileName = originalFile.getName();
+            String originalFileNameWithoutExtension = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+
+            String processedAudioFilePath = demucsOutputDirectory + File.separator + "htdemucs"
+                    + File.separator + originalFileNameWithoutExtension;
+
+            // Create a new ProcessedFileMessage object DTO
+            ProcessedFileMessage processedFileMessage = new ProcessedFileMessage(correlationId, processedAudioFilePath);
+
+            // Publish the message to ProcessedFilesQueue (RabbitMQ)
+            processedFilesProducerService.publishProcessedFileNotification(processedFileMessage);
+
+            LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", processedAudioFilePath);
+
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
         }

@@ -2,10 +2,10 @@ package com.audiosource.backend.service.s3;
 
 import com.audiosource.backend.exception.S3UploadException;
 import com.audiosource.backend.util.S3Utils;
-import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -36,92 +36,139 @@ public class S3UploadService {
     private final S3Presigner s3Presigner;
     private final S3TransferManager s3TransferManager;
     private final S3Client s3Client;
-    private final Dotenv dotenv;
     private static final String SUB_BUCKET = "separated/";
     private static final Logger LOGGER = LoggerFactory.getLogger(S3UploadService.class);
 
+    @Value("${aws.s3.bucketName}")
+    private String bucketName;
+
     @Autowired
-    public S3UploadService(S3Presigner s3Presigner, S3TransferManager s3TransferManager, S3Client s3Client, Dotenv dotenv) {
+    public S3UploadService(S3Presigner s3Presigner, S3TransferManager s3TransferManager, S3Client s3Client) {
         this.s3Presigner = s3Presigner;
         this.s3TransferManager = s3TransferManager;
         this.s3Client = s3Client;
-        this.dotenv = dotenv;
     }
 
     /**
      * Uploads a zipped directory with the separated audios to an S3 bucket
      * and returns a pre-signed URL for downloading the ZIP file.
      *
-     * @param directoryPath The local directory path to upload.
+     * @param processedAudioFilePath The local directory path of processed files to upload to S3.
      * @param bucketName    The name of the S3 bucket.
-     * @return A pre-signed URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
+     * @return A pre-signed GET URL for downloading the uploaded ZIP file from S3, or null if an error occurs.
      */
-    public String uploadDirectoryAsZipToS3(String directoryPath, String bucketName) throws S3UploadException {
+    public String uploadDirectoryAsZipToS3(String processedAudioFilePath, String bucketName) throws S3UploadException {
+        
+        validateParameters(processedAudioFilePath, bucketName);
 
-        validateParameters(directoryPath, bucketName);
-        Path sourceDirectory = Paths.get(directoryPath);
+        Path sourceDirectory = Paths.get(processedAudioFilePath);
 
         try {
-            Path immediateChildDirectory = S3Utils.getImmediateChildDirectory(sourceDirectory);
+            Path zipS3DirectoryPath = prepareDirectoryForUpload(sourceDirectory);
 
-            if (immediateChildDirectory == null) {
-                throw new IllegalArgumentException("No immediate child directory found in " + directoryPath);
-            }
+            uploadFileFromLocalToS3(zipS3DirectoryPath, bucketName);
 
-            Path zipS3File = prepareDirectoryForUpload(immediateChildDirectory);
-
-            uploadFileFromLocalToS3(zipS3File, bucketName);
-
-            return createPresignedGetRequest(bucketName, zipS3File);
+            return createPresignedGetRequest(bucketName, zipS3DirectoryPath);
 
         } catch (IOException | CompletionException e) {
             Throwable cause = (e instanceof CompletionException) ? e.getCause() : e;
-            LOGGER.error("Error during upload process for directory '{}': {}", directoryPath, cause.getMessage(), cause);
+            LOGGER.error("Error during upload process for directory '{}': {}", processedAudioFilePath, cause.getMessage(), cause);
             throw new S3UploadException("Failed to upload directory as zip to S3", cause);
 
         } catch (IllegalArgumentException e) {
-            LOGGER.warn("Invalid argument for directory '{}': {}", directoryPath, e.getMessage(), e);
+            LOGGER.warn("Invalid argument for directory '{}': {}", processedAudioFilePath, e.getMessage(), e);
             throw e;
 
         } catch (S3UploadException e) {
-            LOGGER.error("Error during S3 upload for directory '{}': {}", directoryPath, e.getMessage(), e);
+            LOGGER.error("Error during S3 upload for directory '{}': {}", processedAudioFilePath, e.getMessage(), e);
             throw e;
 
         } catch (Exception e) {
-            LOGGER.error("Unexpected error during upload of directory '{}': {}", directoryPath, e.getMessage(), e);
+            LOGGER.error("Unexpected error during upload of directory '{}': {}", processedAudioFilePath, e.getMessage(), e);
             throw new S3UploadException("Failed to upload directory as zip to S3", e);
         }
     }
 
     /**
-     * Prepares a directory for upload to S3 by renaming it with a unique name and creating a ZIP file.
+     * Prepares the directory with processed audio files for upload to S3, by renaming it
+     * with a unique name and creating a ZIP file of the renamed directory.
      *
-     * @param originalDirectory The original directory path to prepare for upload.
-     * @return The path to the ZIP file created for the directory.
+     * @param processedAudioFilePath The original directory with processed audios to prepare for upload.
+     * @return zipFilePath The path to the ZIP file of the renamed directory.
      * @throws IOException If an I/O error occurs during directory preparation.
      */
-    public Path prepareDirectoryForUpload(Path originalDirectory) throws IOException {
+    public Path prepareDirectoryForUpload(Path processedAudioFilePath) throws IOException {
 
-        String newDirectoryName = S3Utils.generateUniqueDirectoryName();
-        Path renamedDirectory = originalDirectory.resolveSibling(newDirectoryName);
-        Files.move(originalDirectory, renamedDirectory);
+        // Generate a unique name for the directory of processed audio files
+        String uniqueDirectoryName = S3Utils.generateUniqueDirectoryName();
 
-        return S3Utils.toZipDirectory(renamedDirectory);
+        // Rename the directory with the new unique name
+        Path renamedDirectory = processedAudioFilePath.resolveSibling(uniqueDirectoryName);
+
+        LOGGER.info("Renaming directory from '{}' to '{}'", processedAudioFilePath, renamedDirectory);
+
+        // Move the original directory to the new unique name (this also makes processedAudioFilePath invalid after this point)
+        Files.move(processedAudioFilePath, renamedDirectory);
+
+        // Create a ZIP file for the renamed directory
+        Path zipFilePath = S3Utils.toZipDirectory(renamedDirectory);
+
+        LOGGER.info("Created ZIP file '{}' for directory '{}'", zipFilePath, renamedDirectory);
+
+        return zipFilePath;
     }
 
     /**
-     * Creates a pre-signed URL for directly downloading an object from an S3 bucket.
+     * Upload a large file from the local directory to S3 using TransferManager from AWS,
+     * blocking until the upload is complete.
+     *
+     * @param zipS3DirectoryPath The path to the ZIP directory to upload.
+     * @param bucketName The name of the S3 bucket.
+     * @throws Exception If an error occurs during the upload process.
+     */
+    public void uploadFileFromLocalToS3(Path zipS3DirectoryPath, String bucketName) throws S3UploadException {
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(SUB_BUCKET + zipS3DirectoryPath.getFileName().toString())
+                    .build();
+
+            UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
+                    .putObjectRequest(putObjectRequest)
+                    .source(zipS3DirectoryPath)
+                    .build();
+
+            FileUpload fileUpload = s3TransferManager.uploadFile(uploadFileRequest);
+            CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
+            future.join(); // Wait until the upload is complete
+
+            LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3DirectoryPath, bucketName);
+        } catch (CompletionException e) {
+            // Unwrap and handle the actual cause
+            Throwable cause = e.getCause();
+            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, cause.getMessage(), cause);
+            throw new S3UploadException("Failed to upload file to S3", cause);
+        } catch (Exception e) {
+            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, e.getMessage(), e);
+            throw new S3UploadException("Failed to upload file to S3", e);
+        } finally {
+            s3TransferManager.close();
+        }
+    }
+
+    /**
+     * Create a pre-signed URL for directly downloading (GET) an object from an S3 bucket.
      *
      * @param bucketName The name of the S3 bucket.
-     * @param zipS3File  The path to the ZIP file in S3.
+     * @param zipS3DirectoryPath  The path to the ZIP file in S3.
      * @return A pre-signed URL for downloading the object, valid for a limited duration.
      */
-    public String createPresignedGetRequest(String bucketName, Path zipS3File) {
+    public String createPresignedGetRequest(String bucketName, Path zipS3DirectoryPath) {
 
         try {
             GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
                     .signatureDuration(Duration.ofMinutes(60))
-                    .getObjectRequest(req -> req.bucket(bucketName).key(SUB_BUCKET + zipS3File.getFileName().toString()))
+                    .getObjectRequest(req -> req.bucket(bucketName).key(SUB_BUCKET + zipS3DirectoryPath.getFileName().toString()))
                     .build();
 
             PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
@@ -142,45 +189,7 @@ public class S3UploadService {
         }
     }
 
-    /**
-     * Uploads a large file from the local directory to S3 using TransferManager from AWS,
-     * blocking until the upload is complete.
-     *
-     * @param zipS3File The path to the ZIP file to upload.
-     * @param bucketName The name of the S3 bucket.
-     * @throws Exception If an error occurs during the upload process.
-     */
-    public void uploadFileFromLocalToS3(Path zipS3File, String bucketName) throws S3UploadException {
-        try {
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(SUB_BUCKET + zipS3File.getFileName().toString())
-                    .build();
-
-            UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
-                    .putObjectRequest(putObjectRequest)
-                    .source(zipS3File)
-                    .build();
-
-            FileUpload fileUpload = s3TransferManager.uploadFile(uploadFileRequest);
-            CompletableFuture<CompletedFileUpload> future = fileUpload.completionFuture();
-            future.join(); // Wait until the upload is complete
-
-            LOGGER.info("Successfully uploaded {} to S3 bucket {}", zipS3File, bucketName);
-        } catch (CompletionException e) {
-            // Unwrap and handle the actual cause
-            Throwable cause = e.getCause();
-            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, cause.getMessage(), cause);
-            throw new S3UploadException("Failed to upload file to S3", cause);
-        } catch (Exception e) {
-            LOGGER.error("Error uploading file to S3 bucket '{}': {}", bucketName, e.getMessage(), e);
-            throw new S3UploadException("Failed to upload file to S3", e);
-        } finally {
-            s3TransferManager.close();
-        }
-    }
-
-    /* Creates a pre-signed URL to use in a subsequent PUT request of a File to an S3 bucket. */
+    /* Create a pre-signed URL to use in a subsequent PUT request of a File to an S3 bucket. */
     public String createPresignedPutRequest(String key, String contentType) {
 
         if (key == null || key.isEmpty()) {
@@ -191,8 +200,6 @@ public class S3UploadService {
         }
 
         try {
-            String bucketName = dotenv.get("S3_BUCKET");
-
             if (bucketName == null || bucketName.isEmpty()) {
                 throw new IllegalStateException("S3 bucket name is not set in the environment variables.");
             }

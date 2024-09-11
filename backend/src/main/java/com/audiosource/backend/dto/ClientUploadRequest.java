@@ -1,18 +1,21 @@
 package com.audiosource.backend.dto;
 
+import com.audiosource.backend.enums.OutputFormat;
+import com.audiosource.backend.enums.SeparationType;
+
 /* This DTO represents the exact structure of the incoming JSON from the client
 and will give Spring Boot the ability to automatically map the JSON fields to this object.*/
 public class ClientUploadRequest {
     private String keyName;
     private long fileSize;
-    private String separationType;
-    private String outputFormat;
+    private SeparationType separationType;
+    private OutputFormat outputFormat;
     private String userEmail;
 
     public ClientUploadRequest() {
     }
 
-    public ClientUploadRequest(String keyName, long fileSize, String separationType, String outputFormat, String userEmail) {
+    public ClientUploadRequest(String keyName, long fileSize, SeparationType separationType, OutputFormat outputFormat, String userEmail) {
         this.keyName = keyName;
         this.fileSize = fileSize;
         this.separationType = separationType;
@@ -36,19 +39,19 @@ public class ClientUploadRequest {
         this.fileSize = fileSize;
     }
 
-    public String getSeparationType() {
+    public SeparationType getSeparationType() {
         return separationType;
     }
 
-    public void setSeparationType(String separationType) {
+    public void setSeparationType(SeparationType separationType) {
         this.separationType = separationType;
     }
 
-    public String getOutputFormat() {
+    public OutputFormat getOutputFormat() {
         return outputFormat;
     }
 
-    public void setOutputFormat(String outputFormat) {
+    public void setOutputFormat(OutputFormat outputFormat) {
         this.outputFormat = outputFormat;
     }
 

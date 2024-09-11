@@ -39,41 +39,6 @@ public class S3UploadController {
     }
 
     /**
-     * Uploads a zipped directory with the processed files to S3
-     * and returns a pre-signed URL for downloading the ZIP file.
-     *
-     * @param directoryPath The local directory path to upload.
-     * @param bucketName    The name of the S3 bucket.
-     * @return ResponseEntity with a success message and pre-signed URL upon successful upload,
-     *         or an error message if the upload fails.
-     */
-    @PostMapping("/processed-files")
-    public ResponseEntity<String> uploadProcessedFilesToS3(
-            @RequestParam String directoryPath,
-            @RequestParam String bucketName) {
-
-        try {
-            String presignedGetUrl = s3UploadService.uploadDirectoryAsZipToS3(directoryPath, bucketName);
-            LOGGER.info("Successfully uploaded directory: {} to bucket: {}. Generated URL: {}",
-                    directoryPath, bucketName, presignedGetUrl);
-
-            return ResponseEntity.ok("Successful upload. Pre-signed URL: " + presignedGetUrl);
-
-        } catch (IllegalArgumentException e) {
-            LOGGER.error("Invalid input for directoryPath: {} or bucketName: {}", directoryPath, bucketName, e);
-            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
-        } catch (S3UploadException e) {
-            LOGGER.error("Upload error for directoryPath: {} or bucketName: {}", directoryPath, bucketName, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Upload failed: " + e.getMessage());
-        } catch (Exception e) {
-            LOGGER.error("Unexpected error uploading directory to S3: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An unexpected error occurred: " + e.getMessage());
-        }
-    }
-
-    /**
      * Creates a pre-signed PUT request for the user to directly upload a file to S3.
      *
      * @param request A map containing the key and content_type for the object.
@@ -114,7 +79,7 @@ public class S3UploadController {
      */
     @PostMapping("/notify-client-upload")
     public ResponseEntity<String> notifyClientUpload(@RequestBody ClientUploadRequest request) {
-        LOGGER.info("Received notification for file upload: {}", request);
+        LOGGER.info("Received notification from Client for successful upload to S3: {}", request);
         try {
             // Validate required fields
             if (request.getKeyName() == null || request.getSeparationType() == null
@@ -130,7 +95,7 @@ public class S3UploadController {
 
             // Create a new AudioFileMessage object DTO
             AudioFileMessage audioFileMessage = new AudioFileMessage(
-                    correlationId, //TODO: Add correlation ID at every queue
+                    correlationId, //TODO: Send correlation ID to every queue
                     request.getKeyName(),
                     request.getFileSize(),
                     request.getSeparationType(),
@@ -139,8 +104,6 @@ public class S3UploadController {
 
             // Publish the message to RabbitMQ
             audioFilesProducerService.publishClientUploadNotification(audioFileMessage);
-
-            LOGGER.info("Published message to AudioFilesQueue with RabbitMQ: {}", audioFileMessage);
             return ResponseEntity.ok("Notification sent successfully");
 
         } catch (IllegalArgumentException e) {
@@ -150,6 +113,41 @@ public class S3UploadController {
             LOGGER.error("Error processing file upload notification: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An error occurred while processing the notification.");
+        }
+    }
+
+    /**
+     * Uploads a zipped directory with the processed files to S3
+     * and returns a pre-signed URL for downloading the ZIP file.
+     *
+     * @param directoryPath The local directory path to upload.
+     * @param bucketName    The name of the S3 bucket.
+     * @return ResponseEntity with a success message and pre-signed URL upon successful upload,
+     *         or an error message if the upload fails.
+     */
+    @PostMapping("/processed-files")
+    public ResponseEntity<String> uploadProcessedFilesToS3(
+            @RequestParam String directoryPath,
+            @RequestParam String bucketName) {
+
+        try {
+            String presignedGetUrl = s3UploadService.uploadDirectoryAsZipToS3(directoryPath, bucketName);
+            LOGGER.info("Successfully uploaded directory: {} to bucket: {}. Generated URL: {}",
+                    directoryPath, bucketName, presignedGetUrl);
+
+            return ResponseEntity.ok("Successful upload. Pre-signed URL: " + presignedGetUrl);
+
+        } catch (IllegalArgumentException e) {
+            LOGGER.error("Invalid input for directoryPath: {} or bucketName: {}", directoryPath, bucketName, e);
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (S3UploadException e) {
+            LOGGER.error("Upload error for directoryPath: {} or bucketName: {}", directoryPath, bucketName, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Upload failed: " + e.getMessage());
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error uploading directory to S3: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred: " + e.getMessage());
         }
     }
 }

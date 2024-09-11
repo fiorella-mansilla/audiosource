@@ -4,33 +4,72 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AudioRabbitMQConfig {
 
-    // Constants for exchange and routing key
-    public static final String AUDIO_EXCHANGE_NAME = "audioFilesExchange";
-    public static final String AUDIO_ROUTING_KEY = "audio.routing.key";
+    @Value("${spring.rabbitmq.host}")
+    private String rabbitmqHost;
 
-    // Queue name
-    public static final String AUDIO_FILES_QUEUE = "audioFilesQueue";
+    @Value("${spring.rabbitmq.port}")
+    private int rabbitmqPort;
 
+    @Value("${spring.rabbitmq.username}")
+    private String rabbitmqUsername;
+
+    @Value("${spring.rabbitmq.password}")
+    private String rabbitmqPassword;
+
+    @Value("${audioFiles.queue.name}")
+    private String audioFilesQueueName;
+
+    @Value("${audioFiles.exchange.name}")
+    private String audioFilesExchangeName;
+
+    @Value("${audioFiles.routing.key}")
+    private String audioFilesRoutingKey;
+
+    // Define Exchange which ensures that messages are routed to the queue with a specific routing key
+    @Bean
+    public DirectExchange audioExchange() {
+        return new DirectExchange(audioFilesExchangeName);
+    }
+
+    // Define Queue
+    @Bean
+    public Queue audioFilesQueue() {
+        return new Queue(audioFilesQueueName, true);
+    }
+
+    // Define Binding
+    @Bean
+    public Binding audioFilesBinding(Queue audioFilesQueue, DirectExchange audioExchange) {
+        return BindingBuilder.bind(audioFilesQueue).to(audioExchange).with(audioFilesRoutingKey);
+    }
+
+    /* ConnectionFactory bean to establish a connection to RabbitMQ */
     @Bean
     public ConnectionFactory connectionFactory() {
         CachingConnectionFactory factory = new CachingConnectionFactory();
-        factory.setHost("localhost");
-        factory.setPort(5672);
-        factory.setUsername("user");
-        factory.setPassword("password");
+        factory.setHost(rabbitmqHost);
+        factory.setPort(rabbitmqPort);
+        factory.setUsername(rabbitmqUsername);
+        factory.setPassword(rabbitmqPassword);
         return factory;
     }
 
+    /* Message Serialization for producers : Ensures that outgoing messages are automatically converted
+    from Java objects to JSON when sent to RabbitMQ.*/
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
@@ -38,21 +77,20 @@ public class AudioRabbitMQConfig {
         return template;
     }
 
-    // Define Exchange
+    /* Message Deserialization for consumers : Ensures that the incoming messages are converted back
+    * from JSON to the corresponding Java objects. */
     @Bean
-    public DirectExchange audioExchange() {
-        return new DirectExchange(AUDIO_EXCHANGE_NAME);
-    }
+    public RabbitListenerContainerFactory<?> rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(new Jackson2JsonMessageConverter());
 
-    // Define Queue
-    @Bean
-    public Queue audioFilesQueue() {
-        return new Queue(AUDIO_FILES_QUEUE, true);
-    }
-
-    // Define Binding
-    @Bean
-    public Binding audioFilesBinding(Queue audioFilesQueue, DirectExchange audioExchange) {
-        return BindingBuilder.bind(audioFilesQueue).to(audioExchange).with(AUDIO_ROUTING_KEY);
+        // Retry policy for message handling
+        factory.setAdviceChain(RetryInterceptorBuilder
+                .stateless()
+                .maxAttempts(5)
+                .backOffOptions(1000, 2.0, 10000) // Initial interval, multiplier, max interval
+                .build());
+        return factory;
     }
 }

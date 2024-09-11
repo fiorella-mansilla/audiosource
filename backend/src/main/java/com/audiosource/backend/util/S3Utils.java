@@ -18,13 +18,12 @@ import java.util.zip.ZipOutputStream;
 public class S3Utils {
     private static final Logger logger = LoggerFactory.getLogger(S3Utils.class);
 
-    // Zip Utilities
     public static Path toZipDirectory(Path sourceDirectory) throws IOException {
 
         // Compute the path for the zip file
-        Path outputZipPath = Paths.get(sourceDirectory.toString() + ".zip");
+        Path zipDirectoryPath = Paths.get(sourceDirectory.toString() + ".zip");
 
-        try (FileOutputStream fileOutputStream = new FileOutputStream(outputZipPath.toFile());
+        try (FileOutputStream fileOutputStream = new FileOutputStream(zipDirectoryPath.toFile());
              ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)) {
 
             Files.walk(sourceDirectory)
@@ -40,31 +39,10 @@ public class S3Utils {
                         }
                     });
         }
-        return outputZipPath;
+        return zipDirectoryPath;
     }
 
-    // Directory Utilities
-
-    /**
-     * Helper method to get the immediate child directory from the given directory path.
-     * @param directoryPath The path of the parent directory.
-     * @return The path of the immediate child directory, or null if none exists or an error occurs.
-     */
-    public static Path getImmediateChildDirectory(Path directoryPath) {
-        try {
-            return Files.list(directoryPath)
-                    .filter(Files::isDirectory)
-                    .findFirst()
-                    .orElse(null);
-        } catch (IOException e) {
-            logger.error("Error while getting immediate child directory", e);
-            return null;
-        }
-    }
-
-    // String Utilities
-
-    /* Generates a unique name for each output directory of the separated files */
+    /* Generates a unique name for the output directory of processed files */
     public static String generateUniqueDirectoryName() {
         DateTimeFormatter customFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").withZone(ZoneId.systemDefault());
         String date = customFormatter.format(Instant.now());

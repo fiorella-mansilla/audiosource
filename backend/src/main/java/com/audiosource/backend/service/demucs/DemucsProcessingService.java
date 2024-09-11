@@ -9,13 +9,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 @Service
 public class DemucsProcessingService {
-    private static final Logger logger = LoggerFactory.getLogger(DemucsProcessingService.class);
-    private static final List<String> SUPPORTED_FORMATS = Arrays.asList(".mp3", ".wav");
+    private static final Logger LOGGER = LoggerFactory.getLogger(DemucsProcessingService.class);
 
     @Value("${demucs.outputDirectory}")
     private String demucsOutputDirectory;
@@ -36,36 +33,71 @@ public class DemucsProcessingService {
         if (!isReadyForProcessing()) {
             throw new DemucsProcessingException("Service is not ready for processing. Check environment and output directory.");
         }
+
+        validateAudioFile(originalAudioFilePath);
+
+        String[] commandArgs = constructCommandArgs(separationType, outputFormat, originalAudioFilePath);
+
         try {
-            File originalAudioFile = new File(originalAudioFilePath);
-
-            // Validate if audio file exists
-            if(!originalAudioFile.exists()) {
-                throw new IllegalArgumentException("Audio file not found : " + originalAudioFilePath);
-            }
-
-            // Validate if audio format from original file is supported
-            if (!isSupportedFormat(originalAudioFilePath)) {
-                throw new IllegalArgumentException("Unsupported file format: " + originalAudioFilePath);
-            }
-
-            String[] commandArgs = { pythonEnvPath, "-m", "demucs", "-d", "cpu", originalAudioFilePath };
-
-            // Execute Demucs command via ProcessBuilder
-            ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
-            processBuilder.directory(new File(demucsOutputDirectory));
-            processBuilder.inheritIO();
-
-            Process process = processBuilder.start();
-            int exitCode = process.waitFor();
-
-            // Handle processing errors
-            if(exitCode != 0) {
-                throw new IOException("Demucs processing failed for file: " + originalAudioFilePath);
-            }
-            logger.info("Successfully processed audio file {}", originalAudioFilePath);
+            executeCommand(commandArgs);
+            LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", originalAudioFilePath);
         } catch (IOException | InterruptedException e) {
             throw new DemucsProcessingException("Error processing file " + originalAudioFilePath, e);
+        }
+    }
+
+    // Validate the existence of the audio file to be processed
+    private void validateAudioFile(String originalAudioFilePath) {
+        File originalAudioFile = new File(originalAudioFilePath);
+        if (!originalAudioFile.exists()) {
+            throw new IllegalArgumentException("Audio file not found: " + originalAudioFilePath);
+        }
+    }
+
+    // Construct the command arguments based on the separation type and output format arguments
+    private String[] constructCommandArgs(SeparationType separationType, OutputFormat outputFormat, String originalAudioFilePath) {
+        if (separationType == SeparationType.VOCAL_REMOVER && outputFormat == OutputFormat.MP3) {
+            return constructVocalsMp3CommandArgs(originalAudioFilePath);
+        } else if (separationType == SeparationType.VOCAL_REMOVER) {
+            return constructVocalsCommandArgs(originalAudioFilePath);
+        } else if (outputFormat == OutputFormat.MP3) {
+            return constructMp3CommandArgs(originalAudioFilePath);
+        } else {
+            return constructDefaultCommandArgs(originalAudioFilePath);
+        }
+    }
+
+    // Command arguments for the default Demucs processing (4-stems splitter and WAV output format)
+    private String[] constructDefaultCommandArgs(String originalAudioFilePath) {
+        return new String[]{ pythonEnvPath, "-m", "demucs", "-d", "cpu", originalAudioFilePath };
+    }
+
+    // Command arguments for vocal remover processing (2-stems splitter and WAV output format)
+    private String[] constructVocalsCommandArgs(String originalAudioFilePath) {
+        return new String[] { pythonEnvPath, "-m", "demucs", "--two-stems=vocals", "cpu", originalAudioFilePath };
+    }
+
+    // Command arguments for MP3 output format (4-stems splitter and MP3 output format)
+    private String[] constructMp3CommandArgs(String originalAudioFilePath) {
+        return new String[] { pythonEnvPath, "-m", "demucs", "--mp3", "cpu", originalAudioFilePath };
+    }
+
+    // Command arguments for vocal remover processing with MP3 output format (2-stems splitter and MP3 output format)
+    private String[] constructVocalsMp3CommandArgs(String originalAudioFilePath) {
+        return new String[]{ pythonEnvPath, "-m", "demucs", "--two-stems=vocals", "--mp3", "cpu", originalAudioFilePath };
+    }
+
+    // Execute the command to process the retrieved audio file using Demucs
+    private void executeCommand(String[] commandArgs) throws IOException, InterruptedException {
+        ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
+        processBuilder.directory(new File(demucsOutputDirectory));
+        processBuilder.inheritIO();
+
+        Process process = processBuilder.start();
+        int exitCode = process.waitFor();
+
+        if(exitCode != 0) {
+            throw new IOException("Demucs processing failed for command: " + String.join(" ", commandArgs));
         }
     }
 
@@ -79,23 +111,18 @@ public class DemucsProcessingService {
         // Check if the Python environment for Demucs exists and is executable
         File pythonEnv = new File(pythonEnvPath);
         if (!pythonEnv.exists() || !pythonEnv.canExecute()) {
-            logger.error("Python environment for Demucs is not available or executable.");
+            LOGGER.error("Python environment for Demucs is not available or executable.");
             return false;
         }
 
         // Check if the Demucs output directory is available and writable
-        File outputDir = new File(demucsOutputDirectory);
-        if (!outputDir.exists() || !outputDir.canWrite()) {
-            logger.error("Demucs output directory is not available or writable.");
+        File outputDirectory = new File(demucsOutputDirectory);
+        if (!outputDirectory.exists() || !outputDirectory.canWrite()) {
+            LOGGER.error("Demucs output directory is not available or writable.");
             return false;
         }
 
         // If both checks pass, the service is ready for processing
         return true;
-    }
-
-    /* Check if the file format from the downloaded file is supported by Demucs */
-    private boolean isSupportedFormat(String originalAudioFilePath) {
-        return SUPPORTED_FORMATS.stream().anyMatch(originalAudioFilePath::endsWith);
     }
 }

@@ -1,5 +1,6 @@
 package com.audiosource.backend.messaging.producer;
 
+import com.audiosource.backend.dto.ErrorProcessingMessage;
 import com.audiosource.backend.dto.ProcessedFileMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,13 +20,26 @@ public class ProcessedFilesProducerService {
     @Value("${processedFiles.routing.key}")
     private String processedFilesRoutingKey;
 
+    @Value("${error.queue.name}")
+    private String errorQueueName;
+
+    @Value("${error.routing.key}")
+    private String errorRoutingKey;
+
     @Autowired
     public ProcessedFilesProducerService(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    // Publish success message to RabbitMQ
     public void publishProcessedFileNotification(ProcessedFileMessage processedFileMessage) {
         rabbitTemplate.convertAndSend(processedFilesExchangeName, processedFilesRoutingKey, processedFileMessage);
         LOGGER.info("Published message to ProcessedFilesQueue: {}", processedFileMessage);
+    }
+
+    // Publish error message to RabbitMQ
+    public void publishErrorProcessingNotification(ErrorProcessingMessage errorProcessingMessage) {
+        rabbitTemplate.convertAndSend(processedFilesExchangeName, errorRoutingKey, errorProcessingMessage);
+        LOGGER.error("Published error message to ErrorQueue: {}", errorProcessingMessage);
     }
 }

@@ -90,23 +90,32 @@ public class S3UploadService {
     }
 
     /**
-     * Prepares a directory for upload to S3 by renaming it with a unique name and creating a ZIP file.
+     * Prepares the directory with processed audio files for upload to S3, by renaming it
+     * with a unique name and creating a ZIP file of the renamed directory.
      *
-     * @param processedAudioFilePath The original directory of processed audios to prepare for upload.
-     * @return The path to the ZIP file of the renamed directory.
+     * @param processedAudioFilePath The original directory with processed audios to prepare for upload.
+     * @return zipFilePath The path to the ZIP file of the renamed directory.
      * @throws IOException If an I/O error occurs during directory preparation.
      */
     public Path prepareDirectoryForUpload(Path processedAudioFilePath) throws IOException {
 
         // Generate a unique name for the directory of processed audio files
-        String newDirectoryName = S3Utils.generateUniqueDirectoryName();
+        String uniqueDirectoryName = S3Utils.generateUniqueDirectoryName();
+
         // Rename the directory with the new unique name
-        Path renamedDirectory = processedAudioFilePath.resolveSibling(newDirectoryName);
-        // Move the directory to the new unique name
+        Path renamedDirectory = processedAudioFilePath.resolveSibling(uniqueDirectoryName);
+
+        LOGGER.info("Renaming directory from '{}' to '{}'", processedAudioFilePath, renamedDirectory);
+
+        // Move the original directory to the new unique name (this also makes processedAudioFilePath invalid after this point)
         Files.move(processedAudioFilePath, renamedDirectory);
 
         // Create a ZIP file for the renamed directory
-        return S3Utils.toZipDirectory(renamedDirectory);
+        Path zipFilePath = S3Utils.toZipDirectory(renamedDirectory);
+
+        LOGGER.info("Created ZIP file '{}' for directory '{}'", zipFilePath, renamedDirectory);
+
+        return zipFilePath;
     }
 
     /**

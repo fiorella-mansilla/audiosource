@@ -61,7 +61,7 @@ public class AudioFileMessage {
 
     @Override
     public String toString() {
-        return "AudioFileMessage{" +
+        return "AudioFileMessage {" +
                 "correlationId='" + correlationId + '\'' +
                 ", keyName='" + keyName + '\'' +
                 ", fileSize=" + fileSize +

@@ -4,29 +4,35 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class NotificationRabbitMQConfig {
 
-    public static final String NOTIFICATION_EXCHANGE_NAME = "notificationExchange";
-    public static final String NOTIFICATION_ROUTING_KEY = "notification.routing.key";
+    @Value("${notification.queue.name}")
+    private String notificationQueueName;
 
-    public static final String NOTIFICATION_QUEUE = "notificationQueue";
+    @Value("${notification.exchange.name}")
+    private String notificationExchangeName;
+
+    @Value("${notification.routing.key}")
+    private String notificationRoutingKey;
+
 
     @Bean
     public DirectExchange notificationExchange() {
-        return new DirectExchange(NOTIFICATION_EXCHANGE_NAME);
+        return new DirectExchange(notificationExchangeName);
     }
 
     @Bean
     public Queue notificationQueue() {
-        return new Queue(NOTIFICATION_QUEUE, true);
+        return new Queue(notificationQueueName, true);
     }
 
     @Bean
     public Binding notificationBinding(Queue notificationQueue, DirectExchange notificationExchange) {
-        return BindingBuilder.bind(notificationQueue).to(notificationExchange).with(NOTIFICATION_ROUTING_KEY);
+        return BindingBuilder.bind(notificationQueue).to(notificationExchange).with(notificationRoutingKey);
     }
 }

@@ -48,8 +48,8 @@ public class DemucsProcessingService {
             String originalFileName = originalFile.getName();
             String originalFileNameWithoutExtension = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
 
-            String processedAudioFilePath = demucsOutputDirectory + File.separator + "htdemucs"
-                    + File.separator + originalFileNameWithoutExtension;
+            String processedAudioFilePath = demucsOutputDirectory + "htdemucs" + File.separator
+                    + originalFileNameWithoutExtension + File.separator;
 
             LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", processedAudioFilePath);
 

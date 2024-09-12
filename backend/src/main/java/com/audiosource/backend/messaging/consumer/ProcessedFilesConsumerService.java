@@ -4,7 +4,7 @@ import com.audiosource.backend.dto.NotificationMessage;
 import com.audiosource.backend.dto.ProcessedFileMessage;
 import com.audiosource.backend.exception.S3UploadException;
 import com.audiosource.backend.messaging.producer.NotificationProducerService;
-import com.audiosource.backend.messaging.producer.ProcessedFilesProducerService;
+import com.audiosource.backend.service.metadata.FileMetadataService;
 import com.audiosource.backend.service.s3.S3UploadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,16 +19,16 @@ public class ProcessedFilesConsumerService {
 
     private final S3UploadService s3UploadService;
     private final NotificationProducerService notificationProducerService;
-
+    private final FileMetadataService fileMetadataService;
 
     @Value("${aws.s3.bucketName}")
     private String bucketName;
 
-
     @Autowired
-    public ProcessedFilesConsumerService(S3UploadService s3UploadService, NotificationProducerService notificationProducerService) {
+    public ProcessedFilesConsumerService(S3UploadService s3UploadService, NotificationProducerService notificationProducerService, FileMetadataService fileMetadataService) {
         this.s3UploadService = s3UploadService;
         this.notificationProducerService = notificationProducerService;
+        this.fileMetadataService = fileMetadataService;
     }
 
     @RabbitListener(queues = "${processedFiles.queue.name}")
@@ -52,10 +52,18 @@ public class ProcessedFilesConsumerService {
 
                 String downloadUrl = preSignedUrl;
 
-                NotificationMessage notificationMessage = new NotificationMessage(correlationId, downloadUrl);
+                // Save the downloadUrl and update the given fileMetadata collection in MongoDB
+                boolean isUpdated = fileMetadataService.saveDownloadUrl(correlationId, downloadUrl);
 
-                notificationProducerService.publishUploadToS3Notification(notificationMessage);
+                if (isUpdated) {
+                    LOGGER.info("FileMetadata Collection updated successfully with downloadUrl for correlationId: {}", correlationId);
 
+                    // Publish the notification message to the NotificationQueue
+                    NotificationMessage notificationMessage = new NotificationMessage(correlationId, downloadUrl);
+                    notificationProducerService.publishUploadToS3Notification(notificationMessage);
+                } else {
+                    LOGGER.warn("FileMetadata not found for correlationId: {}. Could not update downloadUrl.", correlationId);
+                }
             } else {
                 LOGGER.error("Failed to get pre-signed URL after upload for correlationId: {}", processedFileMessage.getCorrelationId());
                 throw new S3UploadException("Pre-signed URL is null after upload.");

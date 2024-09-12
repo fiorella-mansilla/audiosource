@@ -29,7 +29,7 @@ public class FileMetadataService {
     }
 
     /* Finds the FileMetadata document by correlationId and updates only the downloadUrl field if the record exists.*/
-    public boolean updateDownloadUrl(String correlationId, String downloadUrl) {
+    public boolean saveDownloadUrl(String correlationId, String downloadUrl) {
         Optional<FileMetadata> optionalFileMetadata = fileMetadataRepository.findByCorrelationId(correlationId);
 
         if (optionalFileMetadata.isPresent()) {

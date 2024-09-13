@@ -13,10 +13,10 @@ public class NotificationService {
 
     public void sendSimpleEmail(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("audiosource.project@gmail.com");
         message.setTo(to);
         message.setSubject(subject);
         message.setText(body);
-        message.setFrom("your-notification@example.com");
 
         mailSender.send(message);
     }

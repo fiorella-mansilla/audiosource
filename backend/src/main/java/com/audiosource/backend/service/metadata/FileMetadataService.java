@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/* Handles interactions with FileMetadata collection from MongoDB*/
+/* Handles interactions with FileMetadata collection from MongoDB. */
 @Service
 public class FileMetadataService {
     private final FileMetadataRepository fileMetadataRepository;
@@ -17,18 +17,30 @@ public class FileMetadataService {
         this.fileMetadataRepository = fileMetadataRepository;
     }
 
-    // Save correlationId and userEmail in the FileMetadata collection
+    /* Saves the initial metadata for the FileMetadata collection. */
     public FileMetadata saveInitialMetadata(String correlationId, String userEmail, String originalKeyName, String notificationStatus) {
-
-        // Create a new FileMetadata object with the initial data
         FileMetadata fileMetadata = new FileMetadata();
         fileMetadata.setCorrelationId(correlationId);
         fileMetadata.setUserEmail(userEmail);
         fileMetadata.setOriginalKeyName(originalKeyName);
         fileMetadata.setNotificationStatus(notificationStatus);
 
-        // Save the FileMetadata object
         return fileMetadataRepository.save(fileMetadata);
+    }
+
+    /* Finds the FileMetadata document by correlationId and updates only the downloadUrl field if the record exists.*/
+    public boolean saveDownloadUrl(String correlationId, String downloadUrl) {
+        Optional<FileMetadata> optionalFileMetadata = fileMetadataRepository.findByCorrelationId(correlationId);
+
+        if (optionalFileMetadata.isPresent()) {
+            FileMetadata fileMetadata = optionalFileMetadata.get();
+            fileMetadata.setDownloadUrl(downloadUrl);
+
+            fileMetadataRepository.save(fileMetadata);
+            return true;
+        }
+
+        return false; // Return false if no FileMetadata is found for the correlationId
     }
 
     // Retrieve FileMetadata by correlation ID
@@ -41,18 +53,13 @@ public class FileMetadataService {
         return fileMetadataRepository.findByUserEmail(userEmail);
     }
 
-    // Retrieve FileMetadata by original key name
+    // Retrieve FileMetadata by Original key name
     public Optional<FileMetadata> findByOriginalKeyName(String originalKeyName) {
         return fileMetadataRepository.findByOriginalKeyName(originalKeyName);
     }
 
-    // Retrieve FileMetada by notification status
+    // Retrieve FileMetada by Notification status
     public Optional<FileMetadata> findByNotificationStatus(String notificationStatus) {
         return fileMetadataRepository.findByNotificationStatus(notificationStatus);
-    }
-
-    // Update existing FileMetadata
-    public FileMetadata updateFileMetadata(FileMetadata updatedMetadata) {
-        return fileMetadataRepository.save(updatedMetadata);
     }
 }

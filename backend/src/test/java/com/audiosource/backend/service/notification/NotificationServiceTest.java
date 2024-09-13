@@ -22,12 +22,11 @@ public class NotificationServiceTest {
     private NotificationService notificationService;
 
     @Test
-    public void testSendSimpleEmail() {
+    public void testSendEmailToUser() {
         String to = "recipient@example.com";
-        String subject = "subject";
         String body = "body";
 
-        notificationService.sendSimpleEmail(to, subject, body);
+        notificationService.sendEmailToUser(to, body);
 
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
     }

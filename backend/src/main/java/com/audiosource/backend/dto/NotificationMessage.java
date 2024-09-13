@@ -2,8 +2,8 @@ package com.audiosource.backend.dto;
 
 public class NotificationMessage {
 
-    private String correlationId;
-    private String downloadUrl;
+    private final String correlationId;
+    private final String downloadUrl;
 
     public NotificationMessage(String correlationId, String downloadUrl) {
         this.correlationId = correlationId;
@@ -14,16 +14,8 @@ public class NotificationMessage {
         return correlationId;
     }
 
-    public void setCorrelationId(String correlationId) {
-        this.correlationId = correlationId;
-    }
-
     public String getDownloadUrl() {
         return downloadUrl;
-    }
-
-    public void setDownloadUrl(String downloadUrl) {
-        this.downloadUrl = downloadUrl;
     }
 
     @Override

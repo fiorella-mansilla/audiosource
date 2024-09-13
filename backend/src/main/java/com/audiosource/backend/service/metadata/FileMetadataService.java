@@ -29,21 +29,32 @@ public class FileMetadataService {
     }
 
     /* Finds the FileMetadata document by correlationId and updates only the downloadUrl field if the record exists.*/
-    public boolean saveDownloadUrl(String correlationId, String downloadUrl) {
-        Optional<FileMetadata> optionalFileMetadata = fileMetadataRepository.findByCorrelationId(correlationId);
-
-        if (optionalFileMetadata.isPresent()) {
-            FileMetadata fileMetadata = optionalFileMetadata.get();
-            fileMetadata.setDownloadUrl(downloadUrl);
-
-            fileMetadataRepository.save(fileMetadata);
-            return true;
-        }
-
-        return false; // Return false if no FileMetadata is found for the correlationId
+    public boolean updateDownloadUrl(String correlationId, String downloadUrl) {
+        return fileMetadataRepository.findByCorrelationId(correlationId)
+                .map(fileMetadata -> {
+                    fileMetadata.setDownloadUrl(downloadUrl);
+                    fileMetadataRepository.save(fileMetadata);
+                    return true;
+                }).orElse(false);
     }
 
-    // Retrieve FileMetadata by correlation ID
+    // Retrieve User email by correlation ID
+    public Optional<String> findUserEmailByCorrelationId(String correlationId) {
+        return fileMetadataRepository.findByCorrelationId(correlationId)
+                .map(FileMetadata::getUserEmail);
+    }
+
+    // Update Notification status by correlation ID
+    public boolean updateNotificationStatus(String correlationId) {
+        return fileMetadataRepository.findByCorrelationId(correlationId)
+                .map(fileMetadata -> {
+                    fileMetadata.setNotificationStatus("SENT");
+                    fileMetadataRepository.save(fileMetadata);
+                    return true;
+                }).orElse(false);
+    }
+
+    // Retrieve FileMetadata collection by correlation ID
     public Optional<FileMetadata> findByCorrelationId(String correlationId) {
         return fileMetadataRepository.findByCorrelationId(correlationId);
     }

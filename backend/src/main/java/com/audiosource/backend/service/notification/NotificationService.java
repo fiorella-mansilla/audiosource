@@ -13,7 +13,6 @@ public class NotificationService {
     private static final String EMAIL_SENDER = "audiosource.project@gmail.com";
     private static final String EMAIL_SUBJECT = "AudioSource : Your audio file is ready for download!";
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificationService.class);
-
     private final JavaMailSender mailSender;
 
     @Autowired
@@ -21,23 +20,34 @@ public class NotificationService {
         this.mailSender = mailSender;
     }
 
-    public boolean sendEmailToUser(String to, String downloadUrl) {
-        SimpleMailMessage message = createSimpleMessage(to, downloadUrl);
+    // Email the user with the download URL
+    public boolean sendEmailToUser(String userEmail, String downloadUrl) {
+
+        SimpleMailMessage message = createSimpleMessage(userEmail, downloadUrl);
+        if (message == null) {
+            LOGGER.error("Failed to create email message for recipient: {}", userEmail);
+            return false;
+        }
+
         try {
             mailSender.send(message);
+            LOGGER.info("Email sent successfully to: {}", userEmail);
             return true;
         } catch (MailException e) {
-            LOGGER.error("Failed to send email to {}: {}", to, e.getMessage());
+            LOGGER.error("Failed to send email to {}: {}", userEmail, e.getMessage());
             return false;
         }
     }
 
-    private SimpleMailMessage createSimpleMessage(String to, String downloadUrl) {
+    // Create a simple mail message with the user's email and the download URL added to the body
+    public SimpleMailMessage createSimpleMessage(String to, String downloadUrl) {
+
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(EMAIL_SENDER);
         message.setTo(to);
         message.setSubject(EMAIL_SUBJECT);
         message.setText("You can download your separated files at: " + downloadUrl);
+
         return message;
     }
 }

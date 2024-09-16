@@ -35,8 +35,8 @@ public class ProcessedFilesConsumerService {
     public void consumeProcessedFileMessage(ProcessedFileMessage processedFileMessage) {
         LOGGER.info("Received message from ProcessedFilesQueue: {}", processedFileMessage);
 
-        String processedAudioFilePath = processedFileMessage.getProcessedAudioFilePath();
         String correlationId = processedFileMessage.getCorrelationId();
+        String processedAudioFilePath = processedFileMessage.getProcessedAudioFilePath();
 
         if (processedAudioFilePath == null || processedAudioFilePath.isEmpty()) {
             LOGGER.error("No processedAudioFilePath found for correlationId: {}", correlationId);
@@ -53,7 +53,7 @@ public class ProcessedFilesConsumerService {
                 String downloadUrl = preSignedUrl;
 
                 // Save the downloadUrl and update the given fileMetadata collection in MongoDB
-                boolean isUpdated = fileMetadataService.saveDownloadUrl(correlationId, downloadUrl);
+                boolean isUpdated = fileMetadataService.updateDownloadUrl(correlationId, downloadUrl);
 
                 if (isUpdated) {
                     LOGGER.info("FileMetadata Collection updated successfully with downloadUrl for correlationId: {}", correlationId);

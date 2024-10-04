@@ -30,6 +30,11 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "resolutions": {
+    "nth-check": "^2.0.1",
+    "css-select": "^4.1.0",
+    "svgo": "^2.8.0"
+  },
   "eslintConfig": {
     "extends": "react-app"
   },

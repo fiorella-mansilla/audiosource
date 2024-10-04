@@ -5,7 +5,6 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
-
 import "./assets/css/pe-icon-7.css";
 import "./assets/scss/themes.scss";
 

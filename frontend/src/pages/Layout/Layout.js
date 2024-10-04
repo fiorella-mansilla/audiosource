@@ -1,6 +1,5 @@
 import React, { Component, Suspense } from "react";
 
-// Importing Section
 const Navbar = React.lazy(() => import("../../components/Navbar/NavBar"));
 const Section = React.lazy(() => import("./Section"));
 const About = React.lazy(() => import("../../components/About"));
@@ -8,8 +7,6 @@ const Demos = React.lazy(() => import("../../components/Demos"));
 const FAQ = React.lazy(() => import("../../components/FAQ"));
 const Contact = React.lazy(() => import("../../components/Contact"));
 const Footer = React.lazy(() => import("../../components/Footer/Footer"));
-
-// import { Spinner } from "reactstrap";
 
 class Layout extends Component {
   constructor(props) {

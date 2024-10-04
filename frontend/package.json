@@ -8,11 +8,10 @@
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
     "axios": "^1.6.8",
-    "bootstrap": "5.3.2",
+    "bootstrap": "^5.3.3",
     "css-select": "^5.1.0",
     "feather-icons-react": "^0.6.2",
-    "node-sass": "^9.0.0",
-    "nth-check": "^2.1.1",
+    "nth-check": "^2.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
@@ -21,13 +20,20 @@
     "react-scrollspy-nav": "^1.3.0",
     "react-slick": "^0.29.0",
     "reactstrap": "^9.2.1",
-    "slick-carousel": "^1.8.1"
+    "sass": "^1.79.4",
+    "slick-carousel": "^1.8.1",
+    "svgo": "^3.3.2"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
+  },
+  "resolutions": {
+    "nth-check": "^2.0.1",
+    "css-select": "^4.1.0",
+    "svgo": "^2.8.0"
   },
   "eslintConfig": {
     "extends": "react-app"

@@ -48,12 +48,12 @@ const Section = () => {
               </p>
             </div>
           </Col>
-          <Col lg={4} className="offset-lg-2 col-md-8">
+          <Col lg={5} className="offset-lg-1 col-md-8">
             <div className="hero-login-form mx-auto bg-white shadow p-4 rounded mt-5 mt-lg-0">
               <Form onSubmit={handleSubmit}>
-                <FormGroup className="mb-3">
+                <FormGroup className="mb-4">
                   <div className="text-center mb-4 w-100">
-                    <Label for="input-audio" className="h5">
+                    <Label for="input-audio" className="h4">
                       Upload your Audio
                     </Label>
                   </div>

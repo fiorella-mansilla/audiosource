@@ -21,6 +21,12 @@
     }
 }
 
+.hero-login-form {
+    min-height: 600px;
+    max-width: 100%; /* Ensure it doesn't overflow */
+    width: 100%; /* Occupy the available space */
+  }
+
 // Responsive
 @media (min-width: 200px) and (max-width: 768px) { 
     .hero-4-bg {

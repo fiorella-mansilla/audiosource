@@ -14,7 +14,7 @@ class Layout extends Component {
     this.state = {
       navItems: [
         { id: 1, idnm: "home", navheading: "Home" },
-        { id: 2, idnm: "about", navheading: "About" },
+        { id: 2, idnm: "about", navheading: "How it works" },
         { id: 3, idnm: "demos", navheading: "Demos" },
         { id: 4, idnm: "faq", navheading: "FAQ" },
         { id: 5, idnm: "contact", navheading: "Contact Us" },

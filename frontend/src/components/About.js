@@ -15,14 +15,14 @@ export default class About extends Component {
               <Col lg={7}>
                 <div className="text-center mb-5">
                   <h2 className="">How it works</h2>
-                  <p className="text-muted">Ut enim ad minima veniam quis nostrum exercitationem ullam corporis suscipit laboriosam nisi commodi consequatur.</p>
+                  <p className="text-muted">Once you upload a song, the Demucs model will separate the original track based on the separation type and the output format that you have selected. </p>
                 </div>
               </Col>
             </Row>
             <Row>
               <Col lg={4}>
                 <h2 className="fw-normal line-height-1_4 mb-4">AI-Powered Music <span className="fw-medium">Separator</span></h2>
-                <p className="text-muted mb-4">Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil atque corrupti molestiae.</p>
+                <p className="text-muted mb-4">Any song can be processed, but the processing time may vary depending on the complexity of the song.</p>
               </Col>
               <Col lg={4}>
                 <div className="card border-0">
@@ -32,7 +32,7 @@ export default class About extends Component {
                   <div className="mt-3">
                     <p className="text-uppercase text-muted mb-2 f-13">Karaoke</p>
                     <h4 className="f-18">Vocal Remover</h4>
-                    <p className="text-muted">Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit sed quia consequuntur magni.</p>
+                    <p className="text-muted">Remove vocals from any song by creating a karaoke. You will get two tracks - the accompaniment without vocals and the acapella version (isolated vocals).</p>
                   </div>
                 </div>
               </Col>
@@ -44,7 +44,7 @@ export default class About extends Component {
                   <div className="mt-3">
                     <p className="text-uppercase text-muted mb-2 f-13">Stems</p>
                     <h4 className="f-18">Stem Splitter</h4>
-                    <p className="text-muted">Temporibus autem quibusdam a officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae.</p>
+                    <p className="text-muted">Get the multitracks out of any song by separating your music into individual stems - isolated vocals, drums, bass, and the rest of the accompaniment.</p>
                     </div>
                 </div>
               </Col>

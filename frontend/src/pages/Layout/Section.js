@@ -40,20 +40,19 @@ const Section = () => {
         <Row className="align-items-center justify-content-center">
           <Col lg="6">
             <div>
-              <p className="text-uppercase font-weight-bold f-14 mb-4">AudioSource</p>
+              <p className="text-uppercase font-weight-bold f-17 mb-4">AudioSource</p>
               <h1 className="hero-4-title mb-4 line-height-1_4">Music Source Separation</h1>
-              <p className="text-muted mb-4 pb-3">
-                Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni
-                dolores eos qui ratione sequinesciunt.
+              <p className="text-muted mb-4 pb-3"> An AI-powered application that lets you to isolate vocals, 
+              drums, bass, and other instrumental stems from any song!
               </p>
             </div>
           </Col>
-          <Col lg={4} className="offset-lg-2 col-md-8">
+          <Col lg={5} className="offset-lg-1 col-md-8">
             <div className="hero-login-form mx-auto bg-white shadow p-4 rounded mt-5 mt-lg-0">
               <Form onSubmit={handleSubmit}>
-                <FormGroup className="mb-3">
+                <FormGroup className="mb-4">
                   <div className="text-center mb-4 w-100">
-                    <Label for="input-audio" className="h5">
+                    <Label for="input-audio" className="h4">
                       Upload your Audio
                     </Label>
                   </div>

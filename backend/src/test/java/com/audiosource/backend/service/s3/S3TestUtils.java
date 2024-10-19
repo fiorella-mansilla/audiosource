@@ -30,8 +30,8 @@ public class S3TestUtils {
         return DECIMAL_FORMAT.format(sizeInBytes / (1024.0 * 1024.0)) + " MB";
     }
 
-    public static String formatLastModified(Instant lastModified) {
-        // Assuming S3Utils.formatLastModified returns a formatted date string
-        return S3Utils.formatLastModified(lastModified);
-    }
+//    public static String formatLastModified(Instant lastModified) {
+//        // Assuming S3Utils.formatLastModified returns a formatted date string
+//        return S3Utils.formatLastModified(lastModified);
+//    }
 }

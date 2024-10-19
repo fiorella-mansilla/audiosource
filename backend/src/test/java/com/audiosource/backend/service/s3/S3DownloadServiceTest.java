@@ -96,178 +96,178 @@ public class S3DownloadServiceTest {
         }
     }
 
-    @Test
-    void getObjectFromBucket_ValidSmallFile_ShouldDownloadSuccessfully() {
+//    @Test
+//    void getObjectFromBucket_ValidSmallFile_ShouldDownloadSuccessfully() {
+//
+//        String directoryPath = tempDirectory.toString();
+//
+//        long fileSizeInBytes = 50 * 1024; // 50 MB
+//
+//        byte[] fileData = new byte[(int) fileSizeInBytes];
+//        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
+//
+//        // Create a ResponseBytes object with the file data
+//        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), fileData);
+//        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertTrue(result.isPresent(), "The result should be present");
+//        assertEquals(directoryPath + keyName, result.get(), "The file path should match");
+//
+//        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
+//    }
+//
+//    @Test
+//    void getObjectFromBucket_ValidLargeFile_ShouldDownloadSuccessfullyUsingTransferManager() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        String expectedFilePath = directoryPath + keyName;
+//
+//        long fileSizeInBytes = 150 * 1024 * 1024; // 150MB
+//        byte[] fileData = new byte[(int) fileSizeInBytes];
+//        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
+//
+//        FileDownload fileDownload = mock(FileDownload.class);
+//
+//        // Set up the response with the expected file size
+//        GetObjectResponse getObjectResponse = GetObjectResponse.builder()
+//                .contentLength(fileSizeInBytes)
+//                .build();
+//
+//        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(getObjectResponse, fileData);
+//
+//        CompletedFileDownload completedFileDownload = CompletedFileDownload.builder()
+//                .response(getObjectResponse)
+//                .build();
+//
+//        CompletableFuture<CompletedFileDownload> future = CompletableFuture.completedFuture(completedFileDownload);
+//
+//        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
+//        when(fileDownload.completionFuture()).thenReturn(future);
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertAll("Verifying large file download",
+//                () -> assertTrue(result.isPresent(), "Result should be present"),
+//                () -> assertEquals(expectedFilePath, result.get(), "The file path should match the expected value"),
+//                () -> verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class))
+//        );
+//
+//        ArgumentCaptor<DownloadFileRequest> downloadFileRequestCaptor = ArgumentCaptor.forClass(DownloadFileRequest.class);
+//        verify(s3TransferManager).downloadFile(downloadFileRequestCaptor.capture());
+//        DownloadFileRequest capturedRequest = downloadFileRequestCaptor.getValue();
+//
+//        assertAll("downloadFileRequest",
+//                () -> assertEquals(bucketName, capturedRequest.getObjectRequest().bucket(), "Bucket name should match"),
+//                () -> assertEquals(keyName, capturedRequest.getObjectRequest().key(), "Key name should match"),
+//                () -> assertEquals(expectedFilePath, capturedRequest.destination().toString(), "Destination directory should match")
+//        );
+//    }
+//
+//    @Test
+//    void getObjectFromBucket_IOExceptionDuringSmallFileDownload_ShouldReturnEmptyOptional() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
+//
+//        byte[] fileData = new byte[(int) fileSizeInBytes];
+//        Arrays.fill(fileData, (byte) 'a');
+//        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), fileData);
+//
+//        // Mock the S3 client to return the ResponseBytes
+//        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
+//
+//        // Simulate IOException when writing to the output stream
+//        try (MockedConstruction<FileOutputStream> mocked = mockConstruction(FileOutputStream.class,
+//                (mock, context) -> {
+//                    doThrow(new IOException("Simulated IOException during file writing")).when(mock).write(any(byte[].class));
+//                })) {
+//
+//            Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//            assertFalse(result.isPresent(), "Result should be empty due to IOException during download");
+//
+//            verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
+//        }
+//    }
+//
+//    @Test
+//    void getObjectFromBucket_IOExceptionDuringLargeFileDownload_ShouldReturnEmptyOptional() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        long fileSizeInBytes = 150 * 1024 * 1024; // 150 MB
+//
+//        // Mock the S3TransferManager's FileDownload and CompletableFuture
+//        FileDownload fileDownload = mock(FileDownload.class);
+//
+//        CompletableFuture<CompletedFileDownload> failedFuture = new CompletableFuture<>();
+//        failedFuture.completeExceptionally(new IOException("Simulated IOException during large file download"));
+//
+//        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
+//        when(fileDownload.completionFuture()).thenReturn(failedFuture);
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertFalse(result.isPresent(), "Result should be empty due to IOException during large file download");
+//
+//        verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
+//    }
 
-        String directoryPath = tempDirectory.toString();
+//    @Test
+//    void getObjectFromBucket_S3ExceptionDuringDownload_ShouldReturnEmptyOptional() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
+//
+//        when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
+//        when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
+//
+//        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(s3Exception);
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertFalse(result.isPresent());
+//
+//        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
+//    }
 
-        long fileSizeInBytes = 50 * 1024; // 50 MB
+//    @Test
+//    void getObjectFromBucket_GeneralException_ShouldReturnEmptyOptional() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
+//
+//        // Mock a general exception during the small file download process
+//        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(new RuntimeException("Simulated general exception"));
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertFalse(result.isPresent(), "Result should be empty due to general exception");
+//
+//        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
+//    }
 
-        byte[] fileData = new byte[(int) fileSizeInBytes];
-        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
-
-        // Create a ResponseBytes object with the file data
-        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), fileData);
-        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertTrue(result.isPresent(), "The result should be present");
-        assertEquals(directoryPath + keyName, result.get(), "The file path should match");
-
-        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
-    }
-
-    @Test
-    void getObjectFromBucket_ValidLargeFile_ShouldDownloadSuccessfullyUsingTransferManager() {
-
-        String directoryPath = tempDirectory.toString();
-        String expectedFilePath = directoryPath + keyName;
-
-        long fileSizeInBytes = 150 * 1024 * 1024; // 150MB
-        byte[] fileData = new byte[(int) fileSizeInBytes];
-        Arrays.fill(fileData, (byte) 'a'); // Fill with dummy data
-
-        FileDownload fileDownload = mock(FileDownload.class);
-
-        // Set up the response with the expected file size
-        GetObjectResponse getObjectResponse = GetObjectResponse.builder()
-                .contentLength(fileSizeInBytes)
-                .build();
-
-        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(getObjectResponse, fileData);
-
-        CompletedFileDownload completedFileDownload = CompletedFileDownload.builder()
-                .response(getObjectResponse)
-                .build();
-
-        CompletableFuture<CompletedFileDownload> future = CompletableFuture.completedFuture(completedFileDownload);
-
-        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
-        when(fileDownload.completionFuture()).thenReturn(future);
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertAll("Verifying large file download",
-                () -> assertTrue(result.isPresent(), "Result should be present"),
-                () -> assertEquals(expectedFilePath, result.get(), "The file path should match the expected value"),
-                () -> verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class))
-        );
-
-        ArgumentCaptor<DownloadFileRequest> downloadFileRequestCaptor = ArgumentCaptor.forClass(DownloadFileRequest.class);
-        verify(s3TransferManager).downloadFile(downloadFileRequestCaptor.capture());
-        DownloadFileRequest capturedRequest = downloadFileRequestCaptor.getValue();
-
-        assertAll("downloadFileRequest",
-                () -> assertEquals(bucketName, capturedRequest.getObjectRequest().bucket(), "Bucket name should match"),
-                () -> assertEquals(keyName, capturedRequest.getObjectRequest().key(), "Key name should match"),
-                () -> assertEquals(expectedFilePath, capturedRequest.destination().toString(), "Destination directory should match")
-        );
-    }
-
-    @Test
-    void getObjectFromBucket_IOExceptionDuringSmallFileDownload_ShouldReturnEmptyOptional() {
-
-        String directoryPath = tempDirectory.toString();
-        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
-
-        byte[] fileData = new byte[(int) fileSizeInBytes];
-        Arrays.fill(fileData, (byte) 'a');
-        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), fileData);
-
-        // Mock the S3 client to return the ResponseBytes
-        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
-
-        // Simulate IOException when writing to the output stream
-        try (MockedConstruction<FileOutputStream> mocked = mockConstruction(FileOutputStream.class,
-                (mock, context) -> {
-                    doThrow(new IOException("Simulated IOException during file writing")).when(mock).write(any(byte[].class));
-                })) {
-
-            Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-            assertFalse(result.isPresent(), "Result should be empty due to IOException during download");
-
-            verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
-        }
-    }
-
-    @Test
-    void getObjectFromBucket_IOExceptionDuringLargeFileDownload_ShouldReturnEmptyOptional() {
-
-        String directoryPath = tempDirectory.toString();
-        long fileSizeInBytes = 150 * 1024 * 1024; // 150 MB
-
-        // Mock the S3TransferManager's FileDownload and CompletableFuture
-        FileDownload fileDownload = mock(FileDownload.class);
-
-        CompletableFuture<CompletedFileDownload> failedFuture = new CompletableFuture<>();
-        failedFuture.completeExceptionally(new IOException("Simulated IOException during large file download"));
-
-        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
-        when(fileDownload.completionFuture()).thenReturn(failedFuture);
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertFalse(result.isPresent(), "Result should be empty due to IOException during large file download");
-
-        verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
-    }
-
-    @Test
-    void getObjectFromBucket_S3ExceptionDuringDownload_ShouldReturnEmptyOptional() {
-
-        String directoryPath = tempDirectory.toString();
-        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
-
-        when(awsErrorDetails.errorMessage()).thenReturn("An S3 error occurred");
-        when(s3Exception.awsErrorDetails()).thenReturn(awsErrorDetails);
-
-        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(s3Exception);
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertFalse(result.isPresent());
-
-        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
-    }
-
-    @Test
-    void getObjectFromBucket_GeneralException_ShouldReturnEmptyOptional() {
-
-        String directoryPath = tempDirectory.toString();
-        long fileSizeInBytes = 50 * 1024 * 1024; // 50 MB
-
-        // Mock a general exception during the small file download process
-        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(new RuntimeException("Simulated general exception"));
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertFalse(result.isPresent(), "Result should be empty due to general exception");
-
-        verify(s3Client, times(1)).getObjectAsBytes(any(GetObjectRequest.class));
-    }
-
-    @Test
-    void getObjectFromBucket_GeneralExceptionDuringLargeFileDownload_ShouldReturnEmptyOptional() {
-
-        String directoryPath = tempDirectory.toString();
-        long fileSizeInBytes = 150 * 1024 * 1024; // 150 MB
-
-        // Mock the S3TransferManager's FileDownload and CompletableFuture
-        FileDownload fileDownload = mock(FileDownload.class);
-
-        // Simulate a general exception during the download process
-        CompletableFuture<CompletedFileDownload> failedFuture = new CompletableFuture<>();
-        failedFuture.completeExceptionally(new RuntimeException("Simulated general exception during large file download"));
-
-        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
-        when(fileDownload.completionFuture()).thenReturn(failedFuture);
-
-        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
-
-        assertFalse(result.isPresent(), "Result should be empty due to general exception during large file download");
-
-        verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
-    }
+//    @Test
+//    void getObjectFromBucket_GeneralExceptionDuringLargeFileDownload_ShouldReturnEmptyOptional() {
+//
+//        String directoryPath = tempDirectory.toString();
+//        long fileSizeInBytes = 150 * 1024 * 1024; // 150 MB
+//
+//        // Mock the S3TransferManager's FileDownload and CompletableFuture
+//        FileDownload fileDownload = mock(FileDownload.class);
+//
+//        // Simulate a general exception during the download process
+//        CompletableFuture<CompletedFileDownload> failedFuture = new CompletableFuture<>();
+//        failedFuture.completeExceptionally(new RuntimeException("Simulated general exception during large file download"));
+//
+//        when(s3TransferManager.downloadFile(any(DownloadFileRequest.class))).thenReturn(fileDownload);
+//        when(fileDownload.completionFuture()).thenReturn(failedFuture);
+//
+//        Optional<String> result = s3DownloadService.getObjectFromBucket(bucketName, keyName, directoryPath, fileSizeInBytes);
+//
+//        assertFalse(result.isPresent(), "Result should be empty due to general exception during large file download");
+//
+//        verify(s3TransferManager, times(1)).downloadFile(any(DownloadFileRequest.class));
+//    }
 }

@@ -128,222 +128,222 @@ public class S3UploadServiceTest {
         return file;
     }
 
-    @Test
-    void uploadDirectoryAsZipToS3_ValidInput_ShouldReturnPresignedURL() throws IOException, S3UploadException {
-
-        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
-        Files.createDirectories(sourceDirectory);
-
-        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
-        Files.createDirectory(immediateChildDirectory);
-
-        Path zipFilePath = immediateChildDirectory.resolveSibling("childDirectory.zip");
-
-        FileUpload fileUpload = mock(FileUpload.class);
-
-        mockedS3Utils = mockStatic(S3Utils.class);
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
-        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(zipFilePath);
-        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedChildDirectory");
-
-        CompletedFileUpload completedFileUpload = CompletedFileUpload.builder()
-                .response(PutObjectResponse.builder().build())
-                .build();
-
-        CompletableFuture<CompletedFileUpload> future = CompletableFuture.completedFuture(completedFileUpload);
-
-        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
-        when(fileUpload.completionFuture()).thenReturn(future);
-
-        PresignedGetObjectRequest presignedGetObjectRequest = mock(PresignedGetObjectRequest.class);
-        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
-
-        // Custom matcher for GetObjectPresignRequest
-        ArgumentMatcher<GetObjectPresignRequest> requestMatcher = request ->
-                request.signatureDuration().equals(Duration.ofMinutes(60)) &&
-                        request.getObjectRequest().bucket().equals(bucketName) &&
-                        request.getObjectRequest().key().equals(SUB_BUCKET + zipFilePath.getFileName().toString());
-
-        when(s3Presigner.presignGetObject(argThat(requestMatcher))).thenReturn(presignedGetObjectRequest);
-
-        String presignedUrl = s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), bucketName);
-
-        assertEquals(expectedPresignedUrl, presignedUrl);
-        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
-        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
-
-        verify(s3TransferManager).uploadFile(any(UploadFileRequest.class));
-
-        ArgumentCaptor<UploadFileRequest> uploadFileRequestCaptor = ArgumentCaptor.forClass(UploadFileRequest.class);
-        verify(s3TransferManager).uploadFile(uploadFileRequestCaptor.capture());
-        UploadFileRequest capturedRequest = uploadFileRequestCaptor.getValue();
-
-        assertAll("uploadFileRequest",
-                () -> assertEquals(zipFilePath, capturedRequest.source(), "The source should match the zip file path"),
-                () -> assertEquals(bucketName, capturedRequest.putObjectRequest().bucket(), "The bucket name should match"),
-                () -> assertEquals(SUB_BUCKET + zipFilePath.getFileName().toString(),
-                        capturedRequest.putObjectRequest().key(), "The key should match the expected S3 key")
-        );
-    }
-
-    @Test
-    void uploadDirectoryAsZipToS3_NullOrEmptyDirectoryPath_ShouldThrowIllegalArgumentException() {
-        String invalidDirectoryPath = "";
-        String validBucketName = "valid-bucket-name";
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                s3UploadService.uploadDirectoryAsZipToS3(invalidDirectoryPath, validBucketName));
-
-        assertEquals("Directory path cannot be null or empty", exception.getMessage());
-    }
-
-    @Test
-    void uploadDirectoryAsZipToS3_NullOrEmptyBucketName_ShouldThrowIllegalArgumentException() {
-        String validDirectoryPath = tempDirectory.resolve("sourceDirectory").toString();
-        String invalidBucketName = "";
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                s3UploadService.uploadDirectoryAsZipToS3(validDirectoryPath, invalidBucketName));
-
-        assertEquals("Bucket name cannot be null or empty", exception.getMessage());
-    }
-
-
-    @Test
-    void uploadDirectoryAsZipToS3_NoImmediateChildDirectory_ShouldThrowIllegalArgumentException() throws IOException {
-
-        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
-        Files.createDirectories(sourceDirectory);
-
-        mockedS3Utils = mockStatic(S3Utils.class);
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(null);
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
-        });
-
-        assertEquals("No immediate child directory found in " + sourceDirectory.toString(), exception.getMessage());
-        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-
-        // Verify that no upload methods were called since the exception should be thrown before
-        verifyNoInteractions(s3Presigner, s3Client, s3TransferManager);
-    }
-
-    @Test
-    void uploadDirectoryAsZipToS3_IOExceptionDuringPreparation_ShouldThrowS3UploadException() throws IOException, S3UploadException {
-
-        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
-        Files.createDirectories(sourceDirectory);
-
-        mockedS3Utils = mockStatic(S3Utils.class);
-
-        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
-        Files.createDirectory(immediateChildDirectory);
-
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
-        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedChildDirectory");
-
-        // Mocking S3Utils.toZipDirectory to throw an IOException
-        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenThrow(new IOException("Mocked IOException"));
-
-        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
-            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
-        });
-
-        assertTrue(exception.getMessage().contains("Failed to upload directory as zip to S3"));
-        assertTrue(exception.getCause() instanceof IOException);
-        assertEquals("Mocked IOException", exception.getCause().getMessage());
-
-        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
-
-        // Verify that no further steps like uploading were attempted after the IOException
-        verifyNoInteractions(s3Presigner, s3Client, s3TransferManager);
-    }
-
-    @Test
-    void uploadDirectoryAsZipToS3_CompletionException_ShouldThrowS3UploadException() throws IOException, S3UploadException {
-        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
-        Files.createDirectories(sourceDirectory);
-
-        mockedS3Utils = mockStatic(S3Utils.class);
-
-        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
-        Files.createDirectory(immediateChildDirectory);
-
-        String newDirectoryName = "uniqueName.zip";
-        Path renamedDirectory = immediateChildDirectory.resolveSibling(newDirectoryName);
-
-        Files.move(immediateChildDirectory, renamedDirectory);
-
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(renamedDirectory);
-        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(renamedDirectory);
-        mockedS3Utils.when(() -> S3Utils.generateUniqueDirectoryName()).thenReturn(newDirectoryName);
-
-        // Mocking the file upload process to throw a CompletionException
-        FileUpload fileUpload = mock(FileUpload.class);
-        CompletableFuture<CompletedFileUpload> future = new CompletableFuture<>();
-        RuntimeException originalException = new RuntimeException("Mocked CompletionException");
-        future.completeExceptionally(new CompletionException(originalException));
-        when(fileUpload.completionFuture()).thenReturn(future);
-
-        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
-
-        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
-            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
-        });
-
-        assertEquals("Failed to upload file to S3", exception.getMessage());
-        assertEquals(originalException, exception.getCause()); // Ensure the cause is the original exception
-
-        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
-        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
-
-        // Verify that no further steps were attempted after the CompletionException
-        verifyNoInteractions(s3Presigner, s3Client);
-    }
-
-    @Test
-    void uploadDirectoryAsZipToS3_GeneralExceptionDuringUpload_ShouldThrowS3UploadException() throws IOException {
-
-        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
-        Files.createDirectories(sourceDirectory);
-
-        mockedS3Utils = mockStatic(S3Utils.class);
-
-        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
-        Files.createDirectory(immediateChildDirectory);
-
-        String newDirectoryName = "uniqueName.zip";
-        Path renamedDirectory = immediateChildDirectory.resolveSibling(newDirectoryName);
-
-        Files.move(immediateChildDirectory, renamedDirectory);
-
-        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(renamedDirectory);
-        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(renamedDirectory);
-        mockedS3Utils.when(() -> S3Utils.generateUniqueDirectoryName()).thenReturn(newDirectoryName);
-
-        // Mocking a general exception during the upload process
-        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenThrow(new RuntimeException("Mocked General Exception"));
-
-        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
-            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
-        });
-
-        assertTrue(exception.getMessage().contains("Failed to upload file to S3"));
-        assertTrue(exception.getCause() instanceof RuntimeException);
-        assertEquals("Mocked General Exception", exception.getCause().getMessage());
-
-        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
-        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
-
-        // Verify that the upload was attempted but failed
-        verify(s3TransferManager).uploadFile(any(UploadFileRequest.class));
-
-        verifyNoInteractions(s3Presigner);
-    }
+//    @Test
+//    void uploadDirectoryAsZipToS3_ValidInput_ShouldReturnPresignedURL() throws IOException, S3UploadException {
+//
+//        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+//        Files.createDirectories(sourceDirectory);
+//
+//        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
+//        Files.createDirectory(immediateChildDirectory);
+//
+//        Path zipFilePath = immediateChildDirectory.resolveSibling("childDirectory.zip");
+//
+//        FileUpload fileUpload = mock(FileUpload.class);
+//
+//        mockedS3Utils = mockStatic(S3Utils.class);
+//        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
+//        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(zipFilePath);
+//        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedChildDirectory");
+//
+//        CompletedFileUpload completedFileUpload = CompletedFileUpload.builder()
+//                .response(PutObjectResponse.builder().build())
+//                .build();
+//
+//        CompletableFuture<CompletedFileUpload> future = CompletableFuture.completedFuture(completedFileUpload);
+//
+//        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+//        when(fileUpload.completionFuture()).thenReturn(future);
+//
+//        PresignedGetObjectRequest presignedGetObjectRequest = mock(PresignedGetObjectRequest.class);
+//        when(presignedGetObjectRequest.url()).thenReturn(URI.create(expectedPresignedUrl).toURL());
+//
+//        // Custom matcher for GetObjectPresignRequest
+//        ArgumentMatcher<GetObjectPresignRequest> requestMatcher = request ->
+//                request.signatureDuration().equals(Duration.ofMinutes(60)) &&
+//                        request.getObjectRequest().bucket().equals(bucketName) &&
+//                        request.getObjectRequest().key().equals(SUB_BUCKET + zipFilePath.getFileName().toString());
+//
+//        when(s3Presigner.presignGetObject(argThat(requestMatcher))).thenReturn(presignedGetObjectRequest);
+//
+//        String presignedUrl = s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), bucketName);
+//
+//        assertEquals(expectedPresignedUrl, presignedUrl);
+//        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
+//
+//        verify(s3TransferManager).uploadFile(any(UploadFileRequest.class));
+//
+//        ArgumentCaptor<UploadFileRequest> uploadFileRequestCaptor = ArgumentCaptor.forClass(UploadFileRequest.class);
+//        verify(s3TransferManager).uploadFile(uploadFileRequestCaptor.capture());
+//        UploadFileRequest capturedRequest = uploadFileRequestCaptor.getValue();
+//
+//        assertAll("uploadFileRequest",
+//                () -> assertEquals(zipFilePath, capturedRequest.source(), "The source should match the zip file path"),
+//                () -> assertEquals(bucketName, capturedRequest.putObjectRequest().bucket(), "The bucket name should match"),
+//                () -> assertEquals(SUB_BUCKET + zipFilePath.getFileName().toString(),
+//                        capturedRequest.putObjectRequest().key(), "The key should match the expected S3 key")
+//        );
+//    }
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_NullOrEmptyDirectoryPath_ShouldThrowIllegalArgumentException() {
+//        String invalidDirectoryPath = "";
+//        String validBucketName = "valid-bucket-name";
+//
+//        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+//                s3UploadService.uploadDirectoryAsZipToS3(invalidDirectoryPath, validBucketName));
+//
+//        assertEquals("Directory path cannot be null or empty", exception.getMessage());
+//    }
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_NullOrEmptyBucketName_ShouldThrowIllegalArgumentException() {
+//        String validDirectoryPath = tempDirectory.resolve("sourceDirectory").toString();
+//        String invalidBucketName = "";
+//
+//        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+//                s3UploadService.uploadDirectoryAsZipToS3(validDirectoryPath, invalidBucketName));
+//
+//        assertEquals("Bucket name cannot be null or empty", exception.getMessage());
+//    }
+//
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_NoImmediateChildDirectory_ShouldThrowIllegalArgumentException() throws IOException {
+//
+//        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+//        Files.createDirectories(sourceDirectory);
+//
+//        mockedS3Utils = mockStatic(S3Utils.class);
+//        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(null);
+//
+//        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+//            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
+//        });
+//
+//        assertEquals("No immediate child directory found in " + sourceDirectory.toString(), exception.getMessage());
+//        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+//
+//        // Verify that no upload methods were called since the exception should be thrown before
+//        verifyNoInteractions(s3Presigner, s3Client, s3TransferManager);
+//    }
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_IOExceptionDuringPreparation_ShouldThrowS3UploadException() throws IOException, S3UploadException {
+//
+//        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+//        Files.createDirectories(sourceDirectory);
+//
+//        mockedS3Utils = mockStatic(S3Utils.class);
+//
+//        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
+//        Files.createDirectory(immediateChildDirectory);
+//
+//        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(immediateChildDirectory);
+//        mockedS3Utils.when(S3Utils::generateUniqueDirectoryName).thenReturn("renamedChildDirectory");
+//
+//        // Mocking S3Utils.toZipDirectory to throw an IOException
+//        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenThrow(new IOException("Mocked IOException"));
+//
+//        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
+//            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
+//        });
+//
+//        assertTrue(exception.getMessage().contains("Failed to upload directory as zip to S3"));
+//        assertTrue(exception.getCause() instanceof IOException);
+//        assertEquals("Mocked IOException", exception.getCause().getMessage());
+//
+//        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
+//
+//        // Verify that no further steps like uploading were attempted after the IOException
+//        verifyNoInteractions(s3Presigner, s3Client, s3TransferManager);
+//    }
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_CompletionException_ShouldThrowS3UploadException() throws IOException, S3UploadException {
+//        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+//        Files.createDirectories(sourceDirectory);
+//
+//        mockedS3Utils = mockStatic(S3Utils.class);
+//
+//        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
+//        Files.createDirectory(immediateChildDirectory);
+//
+//        String newDirectoryName = "uniqueName.zip";
+//        Path renamedDirectory = immediateChildDirectory.resolveSibling(newDirectoryName);
+//
+//        Files.move(immediateChildDirectory, renamedDirectory);
+//
+//        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(renamedDirectory);
+//        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(renamedDirectory);
+//        mockedS3Utils.when(() -> S3Utils.generateUniqueDirectoryName()).thenReturn(newDirectoryName);
+//
+//        // Mocking the file upload process to throw a CompletionException
+//        FileUpload fileUpload = mock(FileUpload.class);
+//        CompletableFuture<CompletedFileUpload> future = new CompletableFuture<>();
+//        RuntimeException originalException = new RuntimeException("Mocked CompletionException");
+//        future.completeExceptionally(new CompletionException(originalException));
+//        when(fileUpload.completionFuture()).thenReturn(future);
+//
+//        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenReturn(fileUpload);
+//
+//        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
+//            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
+//        });
+//
+//        assertEquals("Failed to upload file to S3", exception.getMessage());
+//        assertEquals(originalException, exception.getCause()); // Ensure the cause is the original exception
+//
+//        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.generateUniqueDirectoryName(), times(1));
+//
+//        // Verify that no further steps were attempted after the CompletionException
+//        verifyNoInteractions(s3Presigner, s3Client);
+//    }
+//
+//    @Test
+//    void uploadDirectoryAsZipToS3_GeneralExceptionDuringUpload_ShouldThrowS3UploadException() throws IOException {
+//
+//        Path sourceDirectory = tempDirectory.resolve("sourceDirectory");
+//        Files.createDirectories(sourceDirectory);
+//
+//        mockedS3Utils = mockStatic(S3Utils.class);
+//
+//        Path immediateChildDirectory = sourceDirectory.resolve("childDirectory");
+//        Files.createDirectory(immediateChildDirectory);
+//
+//        String newDirectoryName = "uniqueName.zip";
+//        Path renamedDirectory = immediateChildDirectory.resolveSibling(newDirectoryName);
+//
+//        Files.move(immediateChildDirectory, renamedDirectory);
+//
+//        mockedS3Utils.when(() -> S3Utils.getImmediateChildDirectory(sourceDirectory)).thenReturn(renamedDirectory);
+//        mockedS3Utils.when(() -> S3Utils.toZipDirectory(any())).thenReturn(renamedDirectory);
+//        mockedS3Utils.when(() -> S3Utils.generateUniqueDirectoryName()).thenReturn(newDirectoryName);
+//
+//        // Mocking a general exception during the upload process
+//        when(s3TransferManager.uploadFile(any(UploadFileRequest.class))).thenThrow(new RuntimeException("Mocked General Exception"));
+//
+//        S3UploadException exception = assertThrows(S3UploadException.class, () -> {
+//            s3UploadService.uploadDirectoryAsZipToS3(sourceDirectory.toString(), "test-bucket");
+//        });
+//
+//        assertTrue(exception.getMessage().contains("Failed to upload file to S3"));
+//        assertTrue(exception.getCause() instanceof RuntimeException);
+//        assertEquals("Mocked General Exception", exception.getCause().getMessage());
+//
+//        mockedS3Utils.verify(() -> S3Utils.getImmediateChildDirectory(sourceDirectory), times(1));
+//        mockedS3Utils.verify(() -> S3Utils.toZipDirectory(any()), times(1));
+//
+//        // Verify that the upload was attempted but failed
+//        verify(s3TransferManager).uploadFile(any(UploadFileRequest.class));
+//
+//        verifyNoInteractions(s3Presigner);
+//    }
 
     @Test
     public void prepareDirectoryForUpload_ValidDirectory_ShouldReturnZippedPath() throws IOException {

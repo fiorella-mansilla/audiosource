@@ -52,6 +52,10 @@ public class S3UploadController {
             String key = request.get("key");
             String contentType = request.get("content_type");
 
+            if (key == null || contentType == null) {
+                throw new IllegalArgumentException("Missing required fields");
+            }
+
             String data = s3UploadService.createPresignedPutRequest(key, contentType);
             LOGGER.info("Generated pre-signed URL for key: {}", key);
             return ResponseEntity.ok().body(data);

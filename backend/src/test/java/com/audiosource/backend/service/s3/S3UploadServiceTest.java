@@ -94,7 +94,7 @@ public class S3UploadServiceTest {
     @BeforeEach
     void setUp() throws IOException {
         // Inject the bucket name into the S3UploadService using reflection since we're not using a Spring context here
-        ReflectionTestUtils.setField(s3UploadService, "bucketName", "test-bucket");
+        ReflectionTestUtils.setField(s3UploadService, "bucketName", bucketName);
         tempDirectory = Files.createTempDirectory("_temp");
     }
 

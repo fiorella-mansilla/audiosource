@@ -19,6 +19,15 @@ public class FileMetadataService {
 
     /* Saves the initial metadata for the FileMetadata collection. */
     public FileMetadata saveInitialMetadata(String correlationId, String userEmail, String originalKeyName, String notificationStatus) {
+
+        if (correlationId == null || userEmail == null || originalKeyName == null || notificationStatus == null) {
+            throw new IllegalArgumentException("Parameters cannot be null");
+        }
+
+        if (correlationId.isEmpty() || userEmail.isEmpty() || originalKeyName.isEmpty() || notificationStatus.isEmpty()) {
+            throw new IllegalArgumentException("Parameters cannot be empty");
+        }
+
         FileMetadata fileMetadata = new FileMetadata();
         fileMetadata.setCorrelationId(correlationId);
         fileMetadata.setUserEmail(userEmail);

@@ -23,6 +23,11 @@ public class NotificationService {
     // Email the user with the download URL
     public boolean sendEmailToUser(String userEmail, String downloadUrl) {
 
+        if (downloadUrl == null || downloadUrl.trim().isEmpty()) {
+            LOGGER.error("Download URL is null or empty for recipient: {}", userEmail);
+            return false;  // If the URL is null or empty, return false immediately.
+        }
+
         SimpleMailMessage message = createSimpleMessage(userEmail, downloadUrl);
         if (message == null) {
             LOGGER.error("Failed to create email message for recipient: {}", userEmail);

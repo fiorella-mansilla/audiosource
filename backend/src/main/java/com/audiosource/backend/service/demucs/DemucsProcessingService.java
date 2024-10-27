@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 public class DemucsProcessingService {
@@ -19,7 +21,6 @@ public class DemucsProcessingService {
 
     @Value("${python.env.path}")
     private String pythonEnvPath;
-
 
     /**
      * Processes the downloaded audio file using the Demucs AI model for music source separation.
@@ -43,13 +44,7 @@ public class DemucsProcessingService {
         try {
             executeCommand(commandArgs);
 
-            // Extract the original file name and create the processed file path
-            File originalFile = new File(originalAudioFilePath);
-            String originalFileName = originalFile.getName();
-            String originalFileNameWithoutExtension = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-
-            String processedAudioFilePath = demucsOutputDirectory + "separated" + File.separator
-                    + "htdemucs" + File.separator + originalFileNameWithoutExtension;
+            String processedAudioFilePath = constructProcessedFilePath(originalAudioFilePath);
 
             LOGGER.info("Successfully processed audio file by DemucsProcessingService {}", processedAudioFilePath);
 
@@ -59,8 +54,18 @@ public class DemucsProcessingService {
         }
     }
 
+    // Construct the processed file path based on the original audio file path
+    String constructProcessedFilePath(String originalAudioFilePath) {
+        File originalFile = new File(originalAudioFilePath);
+        String originalFileName = originalFile.getName();
+        String originalFileNameWithoutExtension = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+
+        Path outputDirectoryPath = Paths.get(demucsOutputDirectory, "separated", "htdemucs", originalFileNameWithoutExtension);
+        return outputDirectoryPath.toString();
+    }
+
     // Validate the existence of the audio file to be processed
-    private void validateAudioFile(String originalAudioFilePath) {
+    public void validateAudioFile(String originalAudioFilePath) {
         File originalAudioFile = new File(originalAudioFilePath);
         if (!originalAudioFile.exists()) {
             throw new IllegalArgumentException("Audio file not found: " + originalAudioFilePath);
@@ -68,7 +73,7 @@ public class DemucsProcessingService {
     }
 
     // Construct the command arguments based on the separation type and output format arguments
-    private String[] constructCommandArgs(SeparationType separationType, OutputFormat outputFormat, String originalAudioFilePath) {
+    public String[] constructCommandArgs(SeparationType separationType, OutputFormat outputFormat, String originalAudioFilePath) {
         if (separationType == SeparationType.VOCAL_REMOVER && outputFormat == OutputFormat.MP3) {
             return constructVocalsMp3CommandArgs(originalAudioFilePath);
         } else if (separationType == SeparationType.VOCAL_REMOVER) {
@@ -81,27 +86,27 @@ public class DemucsProcessingService {
     }
 
     // Command arguments for the default Demucs processing (4-stems splitter and WAV output format)
-    private String[] constructDefaultCommandArgs(String originalAudioFilePath) {
+    public String[] constructDefaultCommandArgs(String originalAudioFilePath) {
         return new String[]{ pythonEnvPath, "-m", "demucs", "-d", "cpu", originalAudioFilePath };
     }
 
     // Command arguments for vocal remover processing (2-stems splitter and WAV output format)
-    private String[] constructVocalsCommandArgs(String originalAudioFilePath) {
+    public String[] constructVocalsCommandArgs(String originalAudioFilePath) {
         return new String[] { pythonEnvPath, "-m", "demucs", "--two-stems=vocals", "cpu", originalAudioFilePath };
     }
 
     // Command arguments for MP3 output format (4-stems splitter and MP3 output format)
-    private String[] constructMp3CommandArgs(String originalAudioFilePath) {
+    public String[] constructMp3CommandArgs(String originalAudioFilePath) {
         return new String[] { pythonEnvPath, "-m", "demucs", "--mp3", "cpu", originalAudioFilePath };
     }
 
     // Command arguments for vocal remover processing with MP3 output format (2-stems splitter and MP3 output format)
-    private String[] constructVocalsMp3CommandArgs(String originalAudioFilePath) {
+    public String[] constructVocalsMp3CommandArgs(String originalAudioFilePath) {
         return new String[]{ pythonEnvPath, "-m", "demucs", "--two-stems=vocals", "--mp3", "cpu", originalAudioFilePath };
     }
 
     // Execute the command to process the retrieved audio file using Demucs
-    private void executeCommand(String[] commandArgs) throws IOException, InterruptedException {
+    public void executeCommand(String[] commandArgs) throws IOException, InterruptedException {
         ProcessBuilder processBuilder = new ProcessBuilder(commandArgs);
         processBuilder.directory(new File(demucsOutputDirectory));
         processBuilder.inheritIO();

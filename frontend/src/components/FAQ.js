@@ -29,7 +29,6 @@ class FAQ extends Component {
               <Col lg={7}>
                 <div className="text-center mb-5">
                   <h2 className="">Frequently Asked Questions</h2>
-                  <p className="text-muted">Ut enim ad minima veniam quis nostrum exercitationem ullam corporis suscipit laboriosam nisi commodi consequatur.</p>
                 </div>
               </Col>
             </Row>
@@ -46,20 +45,20 @@ class FAQ extends Component {
                   <Nav className="flex-column" pills id="v-pills-tab" role="tablist" aria-orientation="vertical">
                     <NavItem>
                       <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-work' },"rounded" )} onClick={() => { this.toggleTab('v-pills-work'); }} id="v-pills-work-tab">
-                        <h4 className="text-dark f-18">Question 1</h4>
-                        <p className="text-muted f-15">At solmen necessi a uniform grammatica pronunciation sommun plu paroles ma quande.</p>
+                        <h4 className="text-dark f-18">How will I receive my audio files once they are separated?</h4>
+                        <p className="text-muted f-15">You will receive the audio files via email. Just enter your email address in the form and wait for the confirmation that the audio has been successfully uploaded. There's no need to stay on the page while the processing occurs, as you will receive the results in your email.</p>
                       </NavLink>
                     </NavItem>
                     <NavItem>
-                      <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-marketing' },"rounded" )}  onClick={() => { this.toggleTab('v-pills-marketing'); }} id="v-pills-work-tab">
-                        <h4 className="text-dark f-18">Question 2</h4>
-                        <p className="text-muted f-15">At solmen necessi a uniform grammatica pronunciation sommun plu paroles ma quande.</p>
+                      <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-work' },"rounded" )}  onClick={() => { this.toggleTab('v-pills-work'); }} id="v-pills-work-tab">
+                        <h4 className="text-dark f-18">Which music source separation model are you using?</h4>
+                        <p className="text-muted f-15">We utilize the Demucs model developed and trained by Facebook Research. This model is built on a U-Net convolutional architecture, drawing inspiration from Wave-U-Net.</p>
                       </NavLink>
                     </NavItem>
                     <NavItem>
-                      <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-feedback' },"rounded" )} onClick={() => { this.toggleTab('v-pills-feedback'); }} id="v-pills-work-tab">
-                        <h4 className="text-dark f-18">Question 3</h4>
-                        <p className="text-muted f-15">At solmen necessi a uniform grammatica pronunciation sommun plu paroles ma quande.</p>
+                      <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-work' },"rounded" )} onClick={() => { this.toggleTab('v-pills-work'); }} id="v-pills-work-tab">
+                        <h4 className="text-dark f-18">Can I submit multiple audio files at once?</h4>
+                        <p className="text-muted f-15">Due to processing time and load constraints, you can only submit one audio file at a time.</p>
                       </NavLink>
                     </NavItem>
                   </Nav>

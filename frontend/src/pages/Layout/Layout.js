@@ -6,6 +6,7 @@ const About = React.lazy(() => import("../../components/About"));
 const Demos = React.lazy(() => import("../../components/Demos"));
 const FAQ = React.lazy(() => import("../../components/FAQ"));
 const Contact = React.lazy(() => import("../../components/Contact"));
+const Footer = React.lazy(() => import("../../components/Footer/Footer"));
 
 class Layout extends Component {
   constructor(props) {
@@ -82,6 +83,8 @@ class Layout extends Component {
           {/* Importing Contact Us */}
           <Contact />
 
+          {/* Importing Footer */}
+          <Footer />
         </Suspense>
       </React.Fragment>
     );

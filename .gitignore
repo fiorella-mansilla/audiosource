@@ -20,7 +20,7 @@ jspm_packages/
 .env
 
 # frontend config file
-frontend/src/config/index.js
+frontend/src/config/config.js
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

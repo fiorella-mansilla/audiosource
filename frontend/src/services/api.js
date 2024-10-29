@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
-import config from '../config/config.js';
+import config from '../config/index.js';
 
 const apiClient = axios.create({
     baseURL: config.API_BASE_URL,

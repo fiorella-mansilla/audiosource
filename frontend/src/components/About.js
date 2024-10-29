@@ -15,7 +15,7 @@ export default class About extends Component {
               <Col lg={7}>
                 <div className="text-center mb-5">
                   <h2 className="">How it works</h2>
-                  <p className="text-muted">After you upload a song, the Demucs model will separate the original track according to the separation type and output format you selected. You will then receive the results via email. </p>
+                  <p className="text-muted">Once you upload a song, the Demucs model will separate the original track based on the separation type and the output format that you have selected. </p>
                 </div>
               </Col>
             </Row>

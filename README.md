@@ -42,7 +42,9 @@ Ensure you have the following installed in your local machine:
   cd audiosource
   ```
 
-2. Build the project using **Maven** and install the dependencies:
+2. Configure your Environment Variables in an `.env` file.
+
+3. Build the project using **Maven** and install the dependencies:
 
 ```bash
 cd backend

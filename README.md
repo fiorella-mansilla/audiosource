@@ -31,7 +31,9 @@ Ensure you have the following installed in your local machine:
 - Maven 3.6.3 or higher
 - Node.js 16 or higher
 - npm 7 or higher
-- AWS Account
+- An active AWS account
+- Docker
+- Docker Compose
 
 ## Backend Setup
 

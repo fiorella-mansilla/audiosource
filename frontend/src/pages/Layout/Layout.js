@@ -5,7 +5,6 @@ const Section = React.lazy(() => import("./Section"));
 const About = React.lazy(() => import("../../components/About"));
 const Demos = React.lazy(() => import("../../components/Demos"));
 const FAQ = React.lazy(() => import("../../components/FAQ"));
-const Contact = React.lazy(() => import("../../components/Contact"));
 
 class Layout extends Component {
   constructor(props) {
@@ -16,7 +15,6 @@ class Layout extends Component {
         { id: 2, idnm: "about", navheading: "How it works" },
         { id: 3, idnm: "demos", navheading: "Demos" },
         { id: 4, idnm: "faq", navheading: "FAQ" },
-        { id: 5, idnm: "contact", navheading: "Contact Us" },
       ],
       pos: document.documentElement.scrollTop,
       imglight: false,
@@ -78,9 +76,6 @@ class Layout extends Component {
 
           {/* Importing Feature */}
           <FAQ />
-
-          {/* Importing Contact Us */}
-          <Contact />
 
         </Suspense>
       </React.Fragment>

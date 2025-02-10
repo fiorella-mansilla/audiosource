@@ -422,70 +422,6 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(108, 117, 125, 0.07);
 }
 
-.text-success {
-  color: #2dd6b7 !important;
-}
-
-.bg-success {
-  background-color: #2dd6b7 !important;
-}
-
-.icon-fill-success {
-  fill: rgba(45, 214, 183, 0.15);
-}
-
-.bg-soft-success {
-  background: rgba(45, 214, 183, 0.07);
-}
-
-.text-info {
-  color: #1097bd !important;
-}
-
-.bg-info {
-  background-color: #1097bd !important;
-}
-
-.icon-fill-info {
-  fill: rgba(16, 151, 189, 0.15);
-}
-
-.bg-soft-info {
-  background: rgba(16, 151, 189, 0.07);
-}
-
-.text-warning {
-  color: #ffbb13 !important;
-}
-
-.bg-warning {
-  background-color: #ffbb13 !important;
-}
-
-.icon-fill-warning {
-  fill: rgba(255, 187, 19, 0.15);
-}
-
-.bg-soft-warning {
-  background: rgba(255, 187, 19, 0.07);
-}
-
-.text-danger {
-  color: #f43958 !important;
-}
-
-.bg-danger {
-  background-color: #f43958 !important;
-}
-
-.icon-fill-danger {
-  fill: rgba(244, 57, 88, 0.15);
-}
-
-.bg-soft-danger {
-  background: rgba(244, 57, 88, 0.07);
-}
-
 .text-dark {
   color: #343a40 !important;
 }
@@ -911,41 +847,6 @@ h1, h2, h3, h4, h5, h6 {
           box-shadow: 2px 2px 12px -2px rgba(0, 0, 0, 0.08);
 }
 
-.form-control:focus {
-  -webkit-box-shadow: none;
-          box-shadow: none;
-  background-color: #fbfbfd;
-  border-color: #3956de;
-}
-
-.form-control {
-  padding: 8px 10px;
-  font-size: 14px;
-  height: 40px;
-  background-color: rgba(52, 58, 64, 0.01);
-  border: 1px solid rgba(155, 155, 174, 0.3);
-}
-
-.form-control::-webkit-input-placeholder {
-  color: #acacbc;
-  font-size: 14px;
-}
-
-.form-control:-ms-input-placeholder {
-  color: #acacbc;
-  font-size: 14px;
-}
-
-.form-control::-ms-input-placeholder {
-  color: #acacbc;
-  font-size: 14px;
-}
-
-.form-control::placeholder {
-  color: #acacbc;
-  font-size: 14px;
-}
-
 .error {
   margin: 8px 0px;
   display: none;
@@ -974,27 +875,4 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-.footer {
-  padding: 70px 0 25px;
-  background: #292d32;
-  background-position: center center;
-  background-size: cover;
-  width: 100%;
-  background-repeat: no-repeat;
-}
-
-.footer .footer-sub-menu li {
-  padding: 6px 0;
-}
-
-.footer .footer-sub-menu li .footer-link {
-  color: rgba(255, 255, 255, 0.6);
-  -webkit-transition: all 0.5s;
-  transition: all 0.5s;
-}
-
-.footer .footer-sub-menu li .footer-link:hover {
-  color: #ffffff;
-  margin-left: 5px;
-}
 /*# sourceMappingURL=style.css.map */

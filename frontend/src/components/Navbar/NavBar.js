@@ -8,7 +8,6 @@ import {
   Container,
   Collapse
 } from "reactstrap";
-
 import ScrollspyNav from "./Scrollspy";
 
 class NavbarPage extends Component {

@@ -36,3 +36,4 @@ scripts/flow/*/.flowconfig
 .vscode/
 
 
+dist/

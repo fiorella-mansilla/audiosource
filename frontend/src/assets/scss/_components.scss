@@ -1,3 +1,4 @@
+@use "sass:color";
 //
 // components.scss
 //
@@ -26,7 +27,7 @@
     @each $color,
     $value in $theme-colors {
         &.btn-#{$color} {
-            background: linear-gradient(to right, $value 0%, lighten($value, 10%) 100%);
+            background: linear-gradient(to right, $value 0%, color.adjust($value, $lightness: 10%) 100%);
             border: none;
             color: $white;
             box-shadow: 0 4px 20px rgba($value, .15);
@@ -63,8 +64,8 @@
         &.focus,
         &:active,
         &.active {
-            background-color: lighten($light, 3%);
-            border: 1px solid lighten($light, 3%);
+            background-color: color.adjust($light, $lightness: 3%);
+            border: 1px solid color.adjust($light, $lightness: 3%);
             box-shadow: 0 0 0 2px rgba($light, .08);
             color: $dark !important;
         }

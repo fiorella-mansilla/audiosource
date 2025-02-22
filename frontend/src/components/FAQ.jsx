@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { Component } from 'react';
 import { Container, Row, Col, TabContent, TabPane, Nav, NavItem, NavLink } from "reactstrap";
 import classnames from 'classnames';
 
@@ -46,7 +46,7 @@ class FAQ extends Component {
                     <NavItem>
                       <NavLink href="#" className={classnames({ active: this.state.activeTab === 'v-pills-work' },"rounded" )} onClick={() => { this.toggleTab('v-pills-work'); }} id="v-pills-work-tab">
                         <h4 className="text-dark f-18">How will I receive my audio files once they are separated?</h4>
-                        <p className="text-muted f-15">You will receive the audio files via email. Just enter your email address in the form and wait for the confirmation that the audio has been successfully uploaded. There's no need to stay on the page while the processing occurs, as you will receive the results in your email.</p>
+                        <p className="text-muted f-15">You will receive the audio files via email. Just enter your email address in the form and wait for the confirmation that the audio has been successfully uploaded. There is no need to stay on the page while the processing occurs, as you will receive the results in your email.</p>
                       </NavLink>
                     </NavItem>
                     <NavItem>

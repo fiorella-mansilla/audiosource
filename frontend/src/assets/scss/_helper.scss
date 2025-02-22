@@ -1,3 +1,4 @@
+@use "sass:color";
 //
 // helper.scss
 //
@@ -194,7 +195,7 @@ $value in $theme-colors {
 
 .card {
     margin-bottom: 30px;
-    border-color: darken($light, 5%);
+    border-color: color.adjust($light, $lightness: -5%);
 }
 
 @media (min-width: 1400px){

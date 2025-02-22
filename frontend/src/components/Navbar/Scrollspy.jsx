@@ -25,7 +25,7 @@ class scrollSpy extends Component {
         if (current_time < 1) return change / 2 * current_time * current_time + start;
         current_time--;
         return -change / 2 * (current_time * (current_time - 2) - 1) + start;
-    };
+    }
 
     scrollTo(start, to, duration) {
         let change = to - start,
@@ -104,7 +104,7 @@ class scrollSpy extends Component {
             });
     }
     clearOtherNavLinkActiveStyle(excludeSectionID) {
-        this.scrollTargetIds.forEach((sectionID, index) => {
+        this.scrollTargetIds.forEach((sectionID) => {
             if (sectionID !== excludeSectionID) {
                 this.getNavLinkElement(sectionID).classList.remove(this.activeNavClass);
                 this.getNavLinkElement(sectionID).parentNode.classList.remove(this.activeNavClass);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Alert, Progress } from 'reactstrap';
-import { useUpload } from '../../hooks/useUpload';
+import { useUpload } from '../../hooks/useUpload.js';
 import Background from "../../assets/images/hero-4-bg-img.png";
 import validateForm from '../../middleware/validateForm.js';
 

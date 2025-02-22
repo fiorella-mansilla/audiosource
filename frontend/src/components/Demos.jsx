@@ -1,8 +1,6 @@
 import React, { Component } from "react";
 import { Col, Container, Row, Button } from "reactstrap";
 import { FaPlay, FaPause } from "react-icons/fa";
-
-// Import Audio files for Demo
 import originalSampleAudio from "../assets/audios/original-sample.wav";
 import instrumentalAudio from "../assets/audios/instrumental.wav";
 import vocalsAudio from "../assets/audios/vocals.wav";
